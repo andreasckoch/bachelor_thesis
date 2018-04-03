@@ -5,7 +5,8 @@ import utilities as QPOutils
 
 class Response(object):
 
-    
+    # Input: 1D Histogram des Signals
+    # Output: 1D Histogram der Daten
     # Bilde Signalvektor auf jeweiligen Datenraum ab (Zeit, Energie[verschiedene Binnings für verschiedene instrumente])
     # Bei feinem Signalvektor weniger Unstimmigkeiten mit Datenbinning!
     def __init__(self, mask = None):
