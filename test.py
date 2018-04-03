@@ -7,7 +7,7 @@ energy_remapped_path = "/home/andi/bachelor/data/arrangeddata/energy_channels_re
 data_path = "/home/andi/bachelor/data/originaldata/SGR1806_time_PCUID_energychannel.txt"
 data = np.loadtxt(data_path).transpose()
 
-# to fix problems, use explizit bins, i.e. the energy levels specified in energy_channels
+# to fix problems, use explicit bins, i.e. the energy levels specified in energy_channels
 # and add one additional value at the end to define the most righthand bin edge
 
 energies = np.loadtxt(energy_path, usecols=[0, 1, 6, 7], skiprows=25).transpose()

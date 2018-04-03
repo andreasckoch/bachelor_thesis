@@ -5,11 +5,30 @@ import utilities as QPOutils
 
 class Response(object):
 
-    def __init__(self, mask):
+    
+    # Bilde Signalvektor auf jeweiligen Datenraum ab (Zeit, Energie[verschiedene Binnings für verschiedene instrumente])
+    # Bei feinem Signalvektor weniger Unstimmigkeiten mit Datenbinning!
+    def __init__(self, mask = None):
         self._mask = mask
 
     def __call__(self, s):
-        return self._mask*s[s.size//4:s.size//4*3]
+
+        # Betrachte nur Hälfte des Signal Felds
+        s_new_domain = ift.RGSpace((s.size // 2), distances = s.total_volume() / s.size)
+        s = ift.Field(s_new_domain, val = s.val[s.size//4 : s.size//4 * 3])
+        
+
+        if self._mask != None:
+          M = ift.DiagonalOperator(ift.Field(s.domain, val = self._mask))
+        else:
+          M = ift.Field.ones(s.domain)
+        
+        R = ift.GeometryRemover(s.domain) * M
+        return R.times(s)
+        #return self._mask.val*s.val[s.val.shape//4:s.val.shape//4*3]  # implizites Ausschneiden von signal vektor
+
+
+
 
 
 if __name__ == "__main__":
@@ -17,12 +36,16 @@ if __name__ == "__main__":
     start_time = 845
     end_time = 1200
     time_pix = 2**12
-    data = QPOutils.get_data(start_time, end_time, time_pix)
+    #data = QPOutils.get_data(start_time, end_time, time_pix)
 
-    energy_mask = QPOutils.get_energy_sensitivity_mask()
-    R_E = Response(energy_mask)
-    time_mask = QPOutils.get_time_mask(data)
-    R_t = Response(time_mask)
+    R_E = Response()
+    #time_mask = QPOutils.get_time_mask(data)
+    #R_t = Response(time_mask)
+
+    # erzeuge mock signal um Response zu testen
+    s = QPOutils.mock_signal()
+    
+    lam = R_E(ift.exp(s))
 
 
 """

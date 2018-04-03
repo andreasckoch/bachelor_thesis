@@ -1,4 +1,5 @@
 import numpy as np
+import nifty4 as ift
 
 """
 sensible values:
@@ -41,7 +42,7 @@ def create_histograms(data, time_pix, energy_pix):
 
     binned_data = np.zeros(shape=(3, time_pix, energy_pix))
     time_bins = np.zeros(shape=(3, time_pix+1))
-    if energy_pix.size == 1:
+    if energy_pix.size == 1:   # was genau wird hier gmeacht??
         energy_bins = np.zeros(shape=(3, energy_pix+1))
     else:
         energy_bins = energy_pix  # in case i give the bins directly
@@ -72,14 +73,14 @@ def get_data(start_time, end_time, time_pix, seperate_instruments=False, return_
     """
 
     # load data and select time intervall
-    data_path = "/home/marvin/data/SGR1806/SGR1806_time_PCUID_energychannel.txt"
+    data_path = "/home/andi/bachelor/data/originaldata/SGR1806_time_PCUID_energychannel.txt"
     data = np.loadtxt(data_path).transpose()
     data[0] = data[0] - data[0].min()
     data = data[:, np.argmax(data[0] > float(start_time)):np.argmax(data[0] > float(end_time))]
 
     # convert channels to energy in keV
     if not seperate_instruments:
-        energy_path = "/home/marvin/data/SGR1806/energy_channels.txt"
+        energy_path = "/home/andi/bachelor/data/arrangeddata/energy_channels.txt"
         energy = np.loadtxt(energy_path, usecols=[6, 7], skiprows=25).transpose()
         instrument = np.array(data[1], dtype=int)
         instrument[instrument > 0] = 1  # distinguish between PCU0:=0 and PCU1234:=1 energy
@@ -99,3 +100,47 @@ def get_data(start_time, end_time, time_pix, seperate_instruments=False, return_
         return binned_data, time_bins, energy_bins
     else:
         return binned_data
+
+
+
+#        -Binned_data: 3 histograms generated with np.histogram2d using time_pix (f.e. 2**12) and energy_pix (channel amount)
+#        -time_bins: 3 vectors signaling at which timestamps a new bin starts
+#        -energy_bins: same as with time, but in contrast to time bins, they are not uniform!
+#        -wanted_energy_bins: desired uniform energy bins, dead or alive
+
+
+
+def mock_signal():
+
+    # setting spaces
+    npix = np.array([2**18])  # number of pixels
+    total_volume = 2**8  # total length
+
+    # setting signal parameters
+    lambda_s = .5  # signal correlation length
+    sigma_s = 1.5  # signal variance
+
+    # calculating parameters
+    k_0 = 4. / (2 * np.pi * lambda_s)
+    a_s = sigma_s ** 2. * lambda_s * total_volume
+
+    # creation of spaces
+    x1 = ift.RGSpace(npix, distances=total_volume / npix)
+    k1 = x1.get_default_codomain()
+
+    # # creating power_field with given spectrum
+    spec = (lambda k: a_s / (1 + (k / k_0) ** 2) ** 2)
+    S = ift.create_power_operator(k1, power_spectrum=spec)
+
+    # creating FFT-Operator and Response-Operator with Gaussian convolution
+    HTOp = ift.HarmonicTransformOperator(domain=k1, target=x1)
+
+    # drawing a random field
+    sk = S.draw_sample()
+    s = HTOp(sk)
+
+    return s
+
+
+
+
