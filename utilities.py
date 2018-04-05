@@ -1,5 +1,6 @@
 import numpy as np
 import nifty4 as ift
+import copy
 
 """
 sensible values:
@@ -59,7 +60,7 @@ def create_histograms(data, time_pix, energy_pix):
     return binned_data, time_bins, energy_bins
 
 
-def get_data(start_time, end_time, time_pix, seperate_instruments=False, return_bins=False):
+def get_data(start_time, end_time, time_pix, seperate_instruments=False, return_bins=False, return_all_data=False):
     """
     Helper function to read in SGR1806 data and return the binned data (i.e. a histogram)
 
@@ -76,21 +77,29 @@ def get_data(start_time, end_time, time_pix, seperate_instruments=False, return_
     data_path = "/home/andi/bachelor/data/originaldata/SGR1806_time_PCUID_energychannel.txt"
     data = np.loadtxt(data_path).transpose()
     data[0] = data[0] - data[0].min()
+
+    if return_all_data:
+        return data
+
+    # if start and end time were specified
     data = data[:, np.argmax(data[0] > float(start_time)):np.argmax(data[0] > float(end_time))]
 
     # convert channels to energy in keV
     if not seperate_instruments:
         energy_path = "/home/andi/bachelor/data/arrangeddata/energy_channels.txt"
-        energy = np.loadtxt(energy_path, usecols=[6, 7], skiprows=25).transpose()
+        energy = np.loadtxt(energy_path, usecols=[
+                            6, 7], skiprows=25).transpose()
         instrument = np.array(data[1], dtype=int)
-        instrument[instrument > 0] = 1  # distinguish between PCU0:=0 and PCU1234:=1 energy
+        # distinguish between PCU0:=0 and PCU1234:=1 energy
+        instrument[instrument > 0] = 1
         channel = np.array(data[2], dtype=int)
         data = np.array([data[0], energy[instrument, channel]])
 
     # bin data, create histogram
     if seperate_instruments:
         energy_pix = int(np.max(data[2])+1)
-        binned_data, time_bins, energy_bins = create_histograms(data, time_pix, energy_pix)
+        binned_data, time_bins, energy_bins = create_histograms(
+            data, time_pix, energy_pix)
     else:
         energy_pix = 256
         binned_data, time_bins, energy_bins = np.histogram2d(
@@ -102,45 +111,51 @@ def get_data(start_time, end_time, time_pix, seperate_instruments=False, return_
         return binned_data
 
 
-
 #        -Binned_data: 3 histograms generated with np.histogram2d using time_pix (f.e. 2**12) and energy_pix (channel amount)
 #        -time_bins: 3 vectors signaling at which timestamps a new bin starts
 #        -energy_bins: same as with time, but in contrast to time bins, they are not uniform!
 #        -wanted_energy_bins: desired uniform energy bins, dead or alive
 
 
-
-def mock_signal():
-
-    # setting spaces
-    npix = np.array([2**18])  # number of pixels
-    total_volume = 2**8  # total length
-
-    # setting signal parameters
-    lambda_s = .5  # signal correlation length
-    sigma_s = 1.5  # signal variance
-
-    # calculating parameters
-    k_0 = 4. / (2 * np.pi * lambda_s)
-    a_s = sigma_s ** 2. * lambda_s * total_volume
-
-    # creation of spaces
-    x1 = ift.RGSpace(npix, distances=total_volume / npix)
-    k1 = x1.get_default_codomain()
-
-    # # creating power_field with given spectrum
-    spec = (lambda k: a_s / (1 + (k / k_0) ** 2) ** 2)
-    S = ift.create_power_operator(k1, power_spectrum=spec)
-
-    # creating FFT-Operator and Response-Operator with Gaussian convolution
-    HTOp = ift.HarmonicTransformOperator(domain=k1, target=x1)
-
-    # drawing a random field
-    sk = S.draw_sample()
-    s = HTOp(sk)
-
-    return s
+def channel_calibration(data):
+    print(data[2])
+    unique, counts = np.unique(data[2], return_counts=True)
+    d = dict(zip(unique, counts))
+    return d
 
 
+def effectve_area():
+    # OUTPUT: N x number of instruments dimensionality, first row gives
+
+    energy_path = "/home/andi/bachelor/data/arrangeddata/energy_channels.txt"
+    effective_area_path = "/home/andi/bachelor/data/originaldata/EffectiveArea.txt"
+    energy_bins = np.loadtxt(energy_path, usecols=[6, 7], skiprows=25)
+    energy_bins_mean = get_mean_energy(energy_bins)
+    effectve_area_energy = np.loadtxt(effective_area_path, delimiter=", ")
+    effectve_area = copy.copy(energy_bins_mean)
+
+    # find nearest energy point to mean energies for its effective area
+    indices_1 = np.searchsorted(effectve_area_energy[:, 0], energy_bins_mean[:, 0])
+    indices_2 = np.searchsorted(effectve_area_energy[:, 0], energy_bins_mean[:, 1])
+    effectve_area[:, 0] = effectve_area_energy[indices_1, 1]
+    effectve_area[:, 1] = effectve_area_energy[indices_2, 1]
+
+    print(effectve_area)
+    return effectve_area
 
 
+def get_mean_energy(energy_bins):
+    # INPUT: N x (1 + number of instruments) dimensionality, where N refers to number of channels
+    # Only 1 Channel per Component allowed
+    energy_bins_mean = copy.copy(energy_bins)
+
+    for i in range(energy_bins.shape[0]):
+        if i is not 0:
+            # consider all instrument rows
+            energy_bins_mean[i, :] = (energy_bins[i, :] + energy_bins[i - 1, :]) / 2
+
+    return energy_bins_mean
+
+
+if __name__ == "__main__":
+    effectve_area()

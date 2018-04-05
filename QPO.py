@@ -3,33 +3,30 @@ import nifty4 as ift
 import utilities as QPOutils
 
 
-class Response(object):
+class Response(ift.LinearOperator):
 
     # Input: 1D Histogram des Signals
     # Output: 1D Histogram der Daten
     # Bilde Signalvektor auf jeweiligen Datenraum ab (Zeit, Energie[verschiedene Binnings für verschiedene instrumente])
     # Bei feinem Signalvektor weniger Unstimmigkeiten mit Datenbinning!
-    def __init__(self, mask = None):
+    def __init__(self, mask=None):
         self._mask = mask
 
     def __call__(self, s):
 
         # Betrachte nur Hälfte des Signal Felds
-        s_new_domain = ift.RGSpace((s.size // 2), distances = s.total_volume() / s.size)
-        s = ift.Field(s_new_domain, val = s.val[s.size//4 : s.size//4 * 3])
-        
+        s_new_domain = ift.RGSpace(
+            (s.size // 2), distances=s.total_volume() / s.size)
+        s = ift.Field(s_new_domain, val=s.val[s.size//4: s.size//4 * 3])
 
-        if self._mask != None:
-          M = ift.DiagonalOperator(ift.Field(s.domain, val = self._mask))
+        if self._mask is not None:
+            M = ift.DiagonalOperator(ift.Field(s.domain, val=self._mask))
         else:
-          M = ift.Field.ones(s.domain)
-        
+            M = ift.Field.ones(s.domain)
+
         R = ift.GeometryRemover(s.domain) * M
         return R.times(s)
-        #return self._mask.val*s.val[s.val.shape//4:s.val.shape//4*3]  # implizites Ausschneiden von signal vektor
-
-
-
+        # return self._mask.val*s.val[s.val.shape//4:s.val.shape//4*3]  # implizites Ausschneiden von signal vektor
 
 
 if __name__ == "__main__":
@@ -37,7 +34,7 @@ if __name__ == "__main__":
     start_time = 845
     end_time = 1200
     time_pix = 2**12
-    #data = QPOutils.get_data(start_time, end_time, time_pix)
+    data = QPOutils.get_data(start_time, end_time, time_pix)
 
     R_E = Response()
     #time_mask = QPOutils.get_time_mask(data)
@@ -45,7 +42,7 @@ if __name__ == "__main__":
 
     # erzeuge mock signal um Response zu testen
     s = QPOutils.mock_signal()
-    
+
     lam = R_E(ift.exp(s))
 
 
@@ -89,5 +86,10 @@ lasse solver über P laufen
 
 
 
+
+ 3.4.2018:
+Plan für morgen:
+Andi: Mock Signals als Histogram
+Marvin: Response fertigbauen (Histogram Mapping)
 
 """
