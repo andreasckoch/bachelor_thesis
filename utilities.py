@@ -8,6 +8,8 @@ start_time = 845
 end_time = 1200
 time_pix = 2**12
 """
+ins_p = [341909/(341909+335600+329606), 335600 /
+         (341909+335600+329606), 329606/(341909+335600+329606)]
 
 
 def get_time_mask(data, threshold=2):
@@ -116,16 +118,17 @@ def get_data(start_time, end_time, time_pix, seperate_instruments=False, return_
 #        -energy_bins: same as with time, but in contrast to time bins, they are not uniform!
 #        -wanted_energy_bins: desired uniform energy bins, dead or alive
 
-
+'''
 def channel_calibration(data):
     print(data[2])
     unique, counts = np.unique(data[2], return_counts=True)
     d = dict(zip(unique, counts))
     return d
+'''
 
 
-def effectve_area():
-    # OUTPUT: N x number of instruments dimensionality, first row gives
+def effectve_area_and_energy_width():
+    # OUTPUT: N x number of instruments dimensionality
 
     energy_path = "/home/andi/bachelor/data/arrangeddata/energy_channels.txt"
     effective_area_path = "/home/andi/bachelor/data/originaldata/EffectiveArea.txt"
@@ -140,12 +143,35 @@ def effectve_area():
     effectve_area[:, 0] = effectve_area_energy[indices_1, 1]
     effectve_area[:, 1] = effectve_area_energy[indices_2, 1]
 
-    print(effectve_area)
-    return effectve_area
+    # output shape should be 3 x 256 where every instrument has their own row
+    energy_bins = energy_bins.transpose()
+    energy_bins_width = get_energy_widths(energy_bins)
+
+    effectve_area = effectve_area.transpose()
+    effectve_area_out = np.zeros((3, 256))
+    effectve_area_out = effectve_area[0], effectve_area[0], effectve_area[1]
+    return effectve_area_out * energy_bins_width
+
+
+def get_energy_widths(energy_bins):
+    # calculate width of the energy bin of each channel
+    # energy_bins should have dim: 2 x 256
+    energy_bins_width = np.zeros((3, 256))
+    for i, j in energy_bins.shape:
+        if j == 0:  # first width is difference of component to 0
+            energy_bins_width[:1, 0] = energy_bins[:, 0]
+        elif energy_bins[i, j] is not energy_bins[i, j - 1]:  # here the calculation happens
+            energy_bins_width[i, j] = energy_bins[i, j] - energy_bins[i, j - 1]
+        else:
+            energy_bins_width[i, j] = energy_bins_width[i, j - 1]  # if two channels have the same bin
+
+    energy_bins_width[2, :] = energy_bins_width[1, :]
+
+    return energy_bins_width
 
 
 def get_mean_energy(energy_bins):
-    # INPUT: N x (1 + number of instruments) dimensionality, where N refers to number of channels
+    # INPUT: N x number of instruments dimensionality, where N refers to number of channels
     # Only 1 Channel per Component allowed
     energy_bins_mean = copy.copy(energy_bins)
 
@@ -155,6 +181,92 @@ def get_mean_energy(energy_bins):
             energy_bins_mean[i, :] = (energy_bins[i, :] + energy_bins[i - 1, :]) / 2
 
     return energy_bins_mean
+
+
+def energy_response(s, energy_dicts=None, energies=None):
+    """
+    Take in signal vector s, which has elements of photon counts in energy bins in the signal domain.
+    s is of type ift.Field. Its first component gives the photon count in the energy intervall:
+    [0 keV, s.domain.distances kev]
+    """
+    # energy bin width in signal
+    dE = s.domain[0].distances[0]
+    if energy_dicts is None or energies is None:
+        energy_dicts, energies = get_dicts(return_energies=True, return_channel_fractions=True)
+
+    # 1. Aufteilung auf Instrumente
+    signal = np.array([s.val*ins_p[0], s.val*ins_p[1], s.val*ins_p[2]])
+    data = np.zeros(shape=(3, 256))
+
+    # 2. Einordnung in Energie bins der Instrumente
+    i = 0
+    p0 = 1.0  # verbleibender Bruchteil des aktuellen signal bins
+    for ins in [0, 1, 2]:
+        for e in energies[ins]:
+            # finde signal bin, der von e geschnitten wird
+            j = int(e//dE)
+            p1 = ((j+1)*dE-e)/dE  # neuer verbleibender Bruchteil des signal bins j
+
+            if i == j:
+                photons_in_e_bin = (p0-p1)*signal[ins][i]
+            else:
+                # Restanteil von bin i + alle bins zwischen i und j + Anteil von bin j
+                photons_in_e_bin = p0*signal[ins][i] + \
+                    np.sum(signal[ins][i+1:j])+(1-p1)*signal[ins][j]
+
+            # 3. Aufteilung auf Channels
+            data[ins, energy_dicts[ins][e][0]] = photons_in_e_bin * \
+                np.array([energy_dicts[ins][e][1]])
+
+            # setze Werte für nächste Energie
+            p0 = p1
+            i = j
+
+    return data
+
+
+def get_dicts(return_energies=False, return_channel_fractions=False):
+    energy_path = "/home/andi/bachelor/data/arrangeddata/energy_channels.txt"
+    energies = np.loadtxt(energy_path, usecols=[6, 7], skiprows=25).transpose()
+    unique, counts = np.unique(energies[0], return_counts=True)
+    energies_PCU0 = dict(zip(unique, counts))
+    for e in unique:
+        energies_PCU0[e] = [np.argmax(energies[0] >= e)+n for n in range(energies_PCU0[e])]
+    unique, counts = np.unique(energies[1], return_counts=True)
+    energies_PCU23 = dict(zip(unique, counts))
+    for e in unique:
+        energies_PCU23[e] = [np.argmax(energies[1] >= e)+n for n in range(energies_PCU23[e])]
+
+    energy_dicts = [energies_PCU0, energies_PCU23]
+    # print(energy_dicts[0][104.46])
+
+    if return_channel_fractions:
+        data_path = "/home/andi/bachelor/arrangeddata/SGR1806_time_PCUID_energychannel.txt"
+        data = np.loadtxt(data_path, usecols=[1, 2]).transpose()
+        d = []
+
+        for i in [0, 2, 3]:
+            unique, counts = np.unique(data[1, data[0] == i], return_counts=True)
+            d.append(dict(zip(unique.astype(int), counts)))
+
+        # Add these into dictionary
+        d[1][0] = 0
+        d[1][1] = 0
+        d[2][0] = 0
+        d[2][1] = 0
+        energies = [np.unique(energies[0]), np.unique(energies[1]), np.unique(energies[1]).copy()]
+        energy_dicts = [energy_dicts[0], energy_dicts[1], energy_dicts[1].copy()]
+
+        for i in [0, 1, 2]:
+            for e in energies[i]:
+                norm = np.sum(np.array([d[i][n] for n in energy_dicts[i][e]]))
+                p = [d[i][n]/norm for n in energy_dicts[i][e]]
+                energy_dicts[i][e] = [energy_dicts[i][e], p]
+
+    if return_energies:
+        return energy_dicts, energies
+    else:
+        return energy_dicts
 
 
 if __name__ == "__main__":

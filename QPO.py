@@ -3,30 +3,46 @@ import nifty4 as ift
 import utilities as QPOutils
 
 
-class Response(ift.LinearOperator):
+class EnergyResponse(ift.LinearOperator):
 
     # Input: 1D Histogram des Signals
     # Output: 1D Histogram der Daten
     # Bilde Signalvektor auf jeweiligen Datenraum ab (Zeit, Energie[verschiedene Binnings für verschiedene instrumente])
     # Bei feinem Signalvektor weniger Unstimmigkeiten mit Datenbinning!
-    def __init__(self, mask=None):
+    def __init__(self):
+        self._energy_dicts, self._energies = QPOutils.get_dicts(True, True)
+        self._factors = QPOutils.effectve_area_and_energy_width()
+
+    def __call__(self, s):
+        # Betrachte nur Hälfte des Signal Felds, ACHTUNG: Richtiger Abschnitt sollte durchgegeben werden!!!!!
+        s_new_domain = ift.RGSpace(
+            (s.size // 2), distances=s.domain[0].distances[0])
+        s = ift.Field(s_new_domain, val=s.val[s.size//4: s.size//4 * 3])
+
+        # 4 Schritte Response (Instrumente, Energy Bins, Channels, Effective Area + Energy Bin Breite)
+        s = QPOutils.energy_response(s, self._energy_dicts, self._energies)  # dim: 3 x 256
+        s *= self._factors
+
+        R = ift.GeometryRemover(s.domain)
+        return R.times(s)  # exp passiert nicht in Response
+
+
+class TimeResponse(ift.LinearOperator):
+
+    # Input/Output wie bei Energie
+    def __init__(self, mask):
         self._mask = mask
 
     def __call__(self, s):
-
-        # Betrachte nur Hälfte des Signal Felds
+        # Betrachte nur Hälfte des Signal Felds, ACHTUNG: Richtiger Abschnitt sollte durchgegeben werden!!!!!
         s_new_domain = ift.RGSpace(
-            (s.size // 2), distances=s.total_volume() / s.size)
+            (s.size // 2), distances=s.domain[0].distances[0])
         s = ift.Field(s_new_domain, val=s.val[s.size//4: s.size//4 * 3])
 
-        if self._mask is not None:
-            M = ift.DiagonalOperator(ift.Field(s.domain, val=self._mask))
-        else:
-            M = ift.Field.ones(s.domain)
+        M = ift.DiagonalOperator(ift.Field(s.domain, val=self._mask))
 
         R = ift.GeometryRemover(s.domain) * M
         return R.times(s)
-        # return self._mask.val*s.val[s.val.shape//4:s.val.shape//4*3]  # implizites Ausschneiden von signal vektor
 
 
 if __name__ == "__main__":
