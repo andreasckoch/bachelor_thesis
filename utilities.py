@@ -135,7 +135,7 @@ def effectve_area_and_energy_width():
     energy_bins = np.loadtxt(energy_path, usecols=[6, 7], skiprows=25)
     energy_bins_mean = get_mean_energy(energy_bins)
     effectve_area_energy = np.loadtxt(effective_area_path, delimiter=", ")
-    effectve_area = copy.copy(energy_bins_mean)
+    effectve_area = energy_bins_mean.copy()
 
     # find nearest energy point to mean energies for its effective area
     indices_1 = np.searchsorted(effectve_area_energy[:, 0], energy_bins_mean[:, 0])
@@ -146,6 +146,7 @@ def effectve_area_and_energy_width():
     # output shape should be 3 x 256 where every instrument has their own row
     energy_bins = energy_bins.transpose()
     energy_bins_width = get_energy_widths(energy_bins)
+    print(energy_bins_width)
 
     effectve_area = effectve_area.transpose()
     effectve_area_out = np.zeros((3, 256))
@@ -154,16 +155,18 @@ def effectve_area_and_energy_width():
 
 
 def get_energy_widths(energy_bins):
+    # DOESN'T WORK YET!
     # calculate width of the energy bin of each channel
     # energy_bins should have dim: 2 x 256
     energy_bins_width = np.zeros((3, 256))
-    for i, j in energy_bins.shape:
-        if j == 0:  # first width is difference of component to 0
-            energy_bins_width[:1, 0] = energy_bins[:, 0]
-        elif energy_bins[i, j] is not energy_bins[i, j - 1]:  # here the calculation happens
-            energy_bins_width[i, j] = energy_bins[i, j] - energy_bins[i, j - 1]
-        else:
-            energy_bins_width[i, j] = energy_bins_width[i, j - 1]  # if two channels have the same bin
+    for i in range(energy_bins.shape[0]):  # not iterable in this form
+        for j in range(energy_bins.shape[1]):
+            if j == 0:  # first width is difference of component to 0
+                energy_bins_width[:2, 0] = energy_bins[:, 0]
+            elif energy_bins[i, j] != energy_bins[i, j - 1]:  # here the calculation happens
+                energy_bins_width[i, j] = energy_bins[i, j] - energy_bins[i, j - 1]
+            else:
+                energy_bins_width[i, j] = energy_bins_width[i, j - 1]  # if two channels have the same bin
 
     energy_bins_width[2, :] = energy_bins_width[1, :]
 
@@ -173,7 +176,7 @@ def get_energy_widths(energy_bins):
 def get_mean_energy(energy_bins):
     # INPUT: N x number of instruments dimensionality, where N refers to number of channels
     # Only 1 Channel per Component allowed
-    energy_bins_mean = copy.copy(energy_bins)
+    energy_bins_mean = energy_bins.copy()
 
     for i in range(energy_bins.shape[0]):
         if i is not 0:
@@ -270,4 +273,4 @@ def get_dicts(return_energies=False, return_channel_fractions=False):
 
 
 if __name__ == "__main__":
-    effectve_area()
+    effectve_area_and_energy_width()
