@@ -1,6 +1,4 @@
 import numpy as np
-import nifty4 as ift
-import copy
 
 """
 sensible values:
@@ -8,6 +6,8 @@ start_time = 845
 end_time = 1200
 time_pix = 2**12
 """
+data_path = "/home/andi/bachelor/data/originaldata/SGR1806_time_PCUID_energychannel.txt"
+energy_path = "/home/andi/bachelor/data/arrangeddata/energy_channels.txt"
 ins_p = [341909/(341909+335600+329606), 335600 /
          (341909+335600+329606), 329606/(341909+335600+329606)]
 
@@ -146,7 +146,6 @@ def effectve_area_and_energy_width():
     # output shape should be 3 x 256 where every instrument has their own row
     energy_bins = energy_bins.transpose()
     energy_bins_width = get_energy_widths(energy_bins)
-    print(energy_bins_width)
 
     effectve_area = effectve_area.transpose()
     effectve_area_out = np.zeros((3, 256))
@@ -154,12 +153,32 @@ def effectve_area_and_energy_width():
     return effectve_area_out * energy_bins_width
 
 
+def get_instrument_factors():
+    # create a response from all data available
+    data_path = "/home/andi/bachelor/data/originaldata/SGR1806_time_PCUID_energychannel.txt"
+    data = np.loadtxt(data_path, usecols=[1, 2]).transpose()
+    # as for instruments 2 and 3 no photons are registered in the first two bins,
+    # histogram does not those bins up --> insert 0s
+    out = np.array([np.histogram(data[1, data[0] == 0], bins=256)[0],
+                    np.insert(np.histogram(data[1, data[0] == 2], bins=254)[0], 0, [0, 0]),
+                    np.insert(np.histogram(data[1, data[0] == 3], bins=254)[0], 0, [0, 0])])
+    return out
+
+
+def scale_and_normalize(lam, instrument_factors):
+    # Faktoren aus Photon Count Daten pro Channel (instrument_factors) multiplizieren und
+    # mittels sinnvoller Skalierung normieren
+    lam_provisorisch = lam.copy()
+    lam *= instrument_factors
+    lam = lam * np.sum(lam_provisorisch, axis=1)[:, np.newaxis] / np.sum(lam, axis=1)[:, np.newaxis]
+    return lam
+
+
 def get_energy_widths(energy_bins):
-    # DOESN'T WORK YET!
     # calculate width of the energy bin of each channel
     # energy_bins should have dim: 2 x 256
     energy_bins_width = np.zeros((3, 256))
-    for i in range(energy_bins.shape[0]):  # not iterable in this form
+    for i in range(energy_bins.shape[0]):
         for j in range(energy_bins.shape[1]):
             if j == 0:  # first width is difference of component to 0
                 energy_bins_width[:2, 0] = energy_bins[:, 0]
@@ -191,11 +210,14 @@ def energy_response(s, energy_dicts=None, energies=None):
     Take in signal vector s, which has elements of photon counts in energy bins in the signal domain.
     s is of type ift.Field. Its first component gives the photon count in the energy intervall:
     [0 keV, s.domain.distances kev]
+
+    Output: data array with shape (3,256)
     """
     # energy bin width in signal
     dE = s.domain[0].distances[0]
     if energy_dicts is None or energies is None:
-        energy_dicts, energies = get_dicts(return_energies=True, return_channel_fractions=True)
+        energy_dicts, energies = get_dicts(
+            return_energies=True, return_channel_fractions=True)
 
     # 1. Aufteilung auf Instrumente
     signal = np.array([s.val*ins_p[0], s.val*ins_p[1], s.val*ins_p[2]])
@@ -229,7 +251,13 @@ def energy_response(s, energy_dicts=None, energies=None):
 
 
 def get_dicts(return_energies=False, return_channel_fractions=False):
-    energy_path = "/home/andi/bachelor/data/arrangeddata/energy_channels.txt"
+    """
+    return_energies == True : return array of energy bins per instrument
+
+    return_channel_fractions==False : return energy_dicts without fractions, with PCU2 and PCU3 taken together
+
+    """
+
     energies = np.loadtxt(energy_path, usecols=[6, 7], skiprows=25).transpose()
     unique, counts = np.unique(energies[0], return_counts=True)
     energies_PCU0 = dict(zip(unique, counts))
@@ -244,7 +272,6 @@ def get_dicts(return_energies=False, return_channel_fractions=False):
     # print(energy_dicts[0][104.46])
 
     if return_channel_fractions:
-        data_path = "/home/andi/bachelor/arrangeddata/SGR1806_time_PCUID_energychannel.txt"
         data = np.loadtxt(data_path, usecols=[1, 2]).transpose()
         d = []
 
@@ -273,4 +300,4 @@ def get_dicts(return_energies=False, return_channel_fractions=False):
 
 
 if __name__ == "__main__":
-    effectve_area_and_energy_width()
+    get_instrument_response()

@@ -1,11 +1,11 @@
 import numpy as np
 import nifty4 as ift
-from scipy.stats import lognorm
+import matplotlib.pyplot as plt
 
 
 def mock_signal_time():
         # setting spaces
-    npix = np.array([2**12])  # number of pixels
+    npix = np.array([2**15])  # number of pixels
     total_volume = 350.  # total length, here about 350s
 
     # setting signal parameters
@@ -32,10 +32,13 @@ def mock_signal_time():
     s = HTOp(sk)
 
     # apply lognormal distribution to make signal look more realistic
-    # s = ift.Field(s.domain, val=np.random.lognormal(s.val),
-    # dtype=np.float64)
+    lognormal = np.random.lognormal(mean=0., sigma=1., size=s.size)
+    #print(lognormal[:100], s.val[:100])
+    s = ift.Field(x1, val=lognormal)
 
-    ift.plot(ift.exp(s), name='./trash/mock_signal_time.png')
+    plt.plot(lognormal)
+    plt.show()
+    ift.plot(s, name='./trash/mock_signal_time.png')
 
     return s
 
@@ -44,5 +47,10 @@ if __name__ == "__main__":
     mock_signal_time()
 
 
-def mock_signal_energy():
-    return NotImplemented
+def mock_signal_energy(npix):
+    # setting spaces
+    total_volume = 127.  # total length, here about 350s
+    x1 = ift.RGSpace(npix, distances=total_volume / npix)
+    s = ift.Field(x1, val=np.ones(npix, dtype=np.float64) * 100)
+
+    return s
