@@ -2,15 +2,16 @@ import nifty4 as ift
 import numpy as np
 import matplotlib.pyplot as plt
 
+
 def find_dead_times(threshold, data):
     #
-    # take in some data field and mark all segments that are longer than threshold and have value 0 
+    # take in some data field and mark all segments that are longer than threshold and have value 0
     # using a mask with 0. Doing that using a kernel that yields 0 for sought after segments.
     #
-    kernel = ift.Field.ones(ift.UnstructuredDomain(shape = threshold), dtype = np.float64)
+    kernel = ift.Field.ones(ift.UnstructuredDomain(shape=threshold), dtype=np.float64)
     data_dim = data.val.shape
-    data_mask = ift.Field.ones(ift.UnstructuredDomain(shape = data_dim), dtype = np.float64)
-    
+    data_mask = ift.Field.ones(data.domain, dtype=np.float64)
+
     # simple indicator function to count dead segments
     NotData = False
     dead_count = 0
@@ -20,37 +21,28 @@ def find_dead_times(threshold, data):
             break
         if np.sum((kernel * data.val[i:i + threshold]).val) == 0:
             data_mask.val[i:i + threshold] = 0
-            if NotData == False:
+            if NotData is False:
                 dead_count += 1
             NotData = True
         else:
             NotData = False
 
-
-    return data_mask, dead_count
-
-
-
-
+    print('Detected %d dead intervalls in the data.' % (int(dead_count)))
+    return data_mask
 
 
 def build_response(signal_domain, data_mask):
     # zero pad so dimensions of data space matches signal space
 
-    padded_data = ift.Field.zeros(signal_domain, dtype = np.float64)
+    padded_data = ift.Field.zeros(signal_domain, dtype=np.float64)
     index = padded_data.val.shape[0] // 2 - data_mask.val.shape[0] // 2
     padded_data.val[index: index + data_mask.val.shape[0]] = data_mask.val
-    M = ift.DiagonalOperator(ift.Field(signal_domain, val = padded_data))
+    M = ift.DiagonalOperator(ift.Field(signal_domain, val=padded_data))
 
     # mock Response
     R = ift.GeometryRemover(signal_domain)*M
 
     return R
-
-
-
-
-
 
 
 def plot_data():
@@ -78,8 +70,8 @@ if __name__ == "__main__":
 
     total_volume = 3000.0
     binned_data, npix = plot_data()
-    collapsed_data = np.ma.sum(binned_data, axis = 0)
-    ift_data = ift.Field(ift.UnstructuredDomain(shape = collapsed_data.shape), val = collapsed_data)
+    collapsed_data = np.ma.sum(binned_data, axis=0)
+    ift_data = ift.Field(ift.UnstructuredDomain(shape=collapsed_data.shape), val=collapsed_data)
 
     # find dead time segments, here: 5 zeros in a row
     data_mask, dead_count = find_dead_times(5, ift_data)

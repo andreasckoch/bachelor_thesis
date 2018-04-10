@@ -1,4 +1,5 @@
 import numpy as np
+import nifty4 as ift
 
 """
 sensible values:
@@ -118,60 +119,29 @@ def get_data(start_time, end_time, time_pix, seperate_instruments=False, return_
 #        -energy_bins: same as with time, but in contrast to time bins, they are not uniform!
 #        -wanted_energy_bins: desired uniform energy bins, dead or alive
 
-'''
-def channel_calibration(data):
-    print(data[2])
-    unique, counts = np.unique(data[2], return_counts=True)
-    d = dict(zip(unique, counts))
-    return d
-'''
-
-
-def effectve_area_and_energy_width():
-    # OUTPUT: N x number of instruments dimensionality
-
-    energy_path = "/home/andi/bachelor/data/arrangeddata/energy_channels.txt"
-    effective_area_path = "/home/andi/bachelor/data/originaldata/EffectiveArea.txt"
-    energy_bins = np.loadtxt(energy_path, usecols=[6, 7], skiprows=25)
-    energy_bins_mean = get_mean_energy(energy_bins)
-    effectve_area_energy = np.loadtxt(effective_area_path, delimiter=", ")
-    effectve_area = energy_bins_mean.copy()
-
-    # find nearest energy point to mean energies for its effective area
-    indices_1 = np.searchsorted(effectve_area_energy[:, 0], energy_bins_mean[:, 0])
-    indices_2 = np.searchsorted(effectve_area_energy[:, 0], energy_bins_mean[:, 1])
-    effectve_area[:, 0] = effectve_area_energy[indices_1, 1]
-    effectve_area[:, 1] = effectve_area_energy[indices_2, 1]
-
-    # output shape should be 3 x 256 where every instrument has their own row
-    energy_bins = energy_bins.transpose()
-    energy_bins_width = get_energy_widths(energy_bins)
-
-    effectve_area = effectve_area.transpose()
-    effectve_area_out = np.zeros((3, 256))
-    effectve_area_out = effectve_area[0], effectve_area[0], effectve_area[1]
-    return effectve_area_out * energy_bins_width
-
 
 def get_instrument_factors():
     # create a response from all data available
-    data_path = "/home/andi/bachelor/data/originaldata/SGR1806_time_PCUID_energychannel.txt"
     data = np.loadtxt(data_path, usecols=[1, 2]).transpose()
     # as for instruments 2 and 3 no photons are registered in the first two bins,
     # histogram does not those bins up --> insert 0s
-    out = np.array([np.histogram(data[1, data[0] == 0], bins=256)[0],
-                    np.insert(np.histogram(data[1, data[0] == 2], bins=254)[0], 0, [0, 0]),
-                    np.insert(np.histogram(data[1, data[0] == 3], bins=254)[0], 0, [0, 0])])
+    out = np.array([np.histogram(data[1, data[0] == 0], bins=256)[0].astype(float),
+                    np.insert(np.histogram(data[1, data[0] == 2], bins=254)[
+                        0].astype(float), 0, [1e-3, 1e-3]),
+                    np.insert(np.histogram(data[1, data[0] == 3], bins=254)[0].astype(float), 0, [1e-3, 1e-3])])
     return out
 
 
-def scale_and_normalize(lam, instrument_factors):
+def scale_and_normalize(x, instrument_factors):
     # Faktoren aus Photon Count Daten pro Channel (instrument_factors) multiplizieren und
     # mittels sinnvoller Skalierung normieren
-    lam_provisorisch = lam.copy()
-    lam *= instrument_factors
-    lam = lam * np.sum(lam_provisorisch, axis=1)[:, np.newaxis] / np.sum(lam, axis=1)[:, np.newaxis]
-    return lam
+    # Input/Output Dimensions: 3 x t_pix x 256
+    if isinstance(x, ift.Field):
+        x = x.val
+    x_0 = x.copy()
+    x *= instrument_factors[:, np.newaxis, :]
+    x = x * np.sum(x_0, axis=2)[:, :, np.newaxis] / np.sum(x, axis=2)[:, :, np.newaxis]
+    return x
 
 
 def get_energy_widths(energy_bins):
@@ -214,14 +184,14 @@ def energy_response(s, energy_dicts=None, energies=None):
     Output: data array with shape (3,256)
     """
     # energy bin width in signal
-    dE = s.domain[0].distances[0]
+    dE = s.domain[1].distances[0]
     if energy_dicts is None or energies is None:
         energy_dicts, energies = get_dicts(
             return_energies=True, return_channel_fractions=True)
 
-    # 1. Aufteilung auf Instrumente
+    # 1. Aufteilung auf Instrumente, signal dim: 3 x t_pix x e_pix
     signal = np.array([s.val*ins_p[0], s.val*ins_p[1], s.val*ins_p[2]])
-    data = np.zeros(shape=(3, 256))
+    data = np.zeros(shape=(3, s.shape[0], 256))
 
     # 2. Einordnung in Energie bins der Instrumente
     i = 0
@@ -233,21 +203,57 @@ def energy_response(s, energy_dicts=None, energies=None):
             p1 = ((j+1)*dE-e)/dE  # neuer verbleibender Bruchteil des signal bins j
 
             if i == j:
-                photons_in_e_bin = (p0-p1)*signal[ins][i]
+                photons_in_e_bin = (p0-p1)*signal[ins, :, i]
             else:
                 # Restanteil von bin i + alle bins zwischen i und j + Anteil von bin j
-                photons_in_e_bin = p0*signal[ins][i] + \
-                    np.sum(signal[ins][i+1:j])+(1-p1)*signal[ins][j]
+                photons_in_e_bin = p0*signal[ins, :, i] + \
+                    np.sum(signal[ins, :, i+1:j], axis=1) + (1-p1)*signal[ins, :, j]
 
             # 3. Aufteilung auf Channels
-            data[ins, energy_dicts[ins][e][0]] = photons_in_e_bin * \
-                np.array([energy_dicts[ins][e][1]])
+            data[ins, :, energy_dicts[ins][e][0]] = np.ma.outerproduct(photons_in_e_bin,
+                                                                       np.array([energy_dicts[ins][e][1]])).transpose()
 
             # setze Werte für nächste Energie
             p0 = p1
             i = j
 
     return data
+
+
+def energy_response_adjoint(data, domain, energy_dicts=None, energies=None):
+    """
+    Input: data as ift.Field(domain=UnstructuredDomain) with shape (3,256)
+           domain of signal field
+    Output: numpy array of signal field with photon counts in energy bins as elements
+    """
+
+    # energy bin width in signal
+    dE = domain[1].distances[0]
+    signal = np.zeros(shape=domain.shape)
+    # take first element to be photon counts in energy intervall [0 keV, dE keV]
+
+    for ins in [0, 1, 2]:
+        i = 0  # letzter geschnittener Signal bin
+        p0 = 1.0  # verbleibender Bruchteil des signal bins i
+        for e in energies[ins]:
+            # Sammle alle Photon Counts zusammen, für diesen energy bin des instrument ins
+            # energy_dicts[ins][e][0] ist Liste an Channel numbers, die e befüllen, für instrument ins
+            photons_in_e_bin = np.sum(data[ins, :, energy_dicts[ins][e][0]], axis=1)
+
+            # Teile Photon Counts dieses energy bins auf die signal bins auf, die davon geschnitten werden
+            # (unteren und oberen Schnittpunkt und die Bruchteile finden, mit denen diese zu füllen sind)
+            j = int(e//dE)  # oberer geschnittener signal bin
+            p1 = ((j+1)*dE-e)/dE  # neuer verbleibender Bruchteil des signal bins j
+            norm = p0+(1-p1)+(j-1-i)
+            # Teile Photon Counts den Signal bins zu, die von bin e geschnitten werden
+            signal[:, i] += p0*photons_in_e_bin/norm
+            signal[:, i+1:j] += photons_in_e_bin/norm
+            signal[:, j] += (1-p1)*photons_in_e_bin/norm
+
+            i = j
+            p0 = p1
+
+    return signal
 
 
 def get_dicts(return_energies=False, return_channel_fractions=False):

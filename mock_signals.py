@@ -1,12 +1,22 @@
 import numpy as np
 import nifty4 as ift
-import matplotlib.pyplot as plt
 
 
-def mock_signal_time():
-        # setting spaces
-    npix = np.array([2**15])  # number of pixels
-    total_volume = 350.  # total length, here about 350s
+def mock_signal_energy_time(t_pix, t_volume, e_pix, e_volume):
+
+    time_domain = ift.RGSpace(t_pix, distances=t_volume / t_pix)
+    energy_domain = ift.RGSpace(e_pix, distances=e_volume / e_pix)
+    domain = ift.DomainTuple.make((time_domain, energy_domain))
+    s = ift.Field(domain, val=np.ones((t_pix, e_pix), dtype=np.float64) * 100)
+
+    # apply some distribution to make signal look more realistic
+    #s = ift.Field(x1, val=np.random.poisson(s.val))
+    return s
+
+
+def mock_signal_time(npix):
+
+    total_volume = 127.  # total length, here about 350s
 
     # setting signal parameters
     lambda_s = .5  # signal correlation length
@@ -31,14 +41,10 @@ def mock_signal_time():
     sk = S.draw_sample()
     s = HTOp(sk)
 
-    # apply lognormal distribution to make signal look more realistic
-    lognormal = np.random.lognormal(mean=0., sigma=1., size=s.size)
-    #print(lognormal[:100], s.val[:100])
-    s = ift.Field(x1, val=lognormal)
+    # apply some distribution to make signal look more realistic
+    s = ift.Field(x1, val=np.random.poisson(s.val), dtype=np.float64)
 
-    plt.plot(lognormal)
-    plt.show()
-    ift.plot(s, name='./trash/mock_signal_time.png')
+    #ift.plot(s, name='./trash/mock_signal_time.png')
 
     return s
 
@@ -52,5 +58,6 @@ def mock_signal_energy(npix):
     total_volume = 127.  # total length, here about 350s
     x1 = ift.RGSpace(npix, distances=total_volume / npix)
     s = ift.Field(x1, val=np.ones(npix, dtype=np.float64) * 100)
-
+    # apply some distribution to make signal look more realistic
+    s = ift.Field(x1, val=np.random.poisson(s.val))
     return s
