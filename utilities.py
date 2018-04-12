@@ -15,6 +15,7 @@ ins_p = [341909/(341909+335600+329606), 335600 /
 
 def get_time_mask(data, threshold=2):
 
+    # When extracting real mask, consider start and end point, because it will be applied after signal is padded
     # if binned_data is given, sum along instrument axis=0, and along energy axis=1
     data = np.sum(np.sum(data, axis=0), axis=1)
 
@@ -39,6 +40,8 @@ def get_time_mask(data, threshold=2):
     return data_mask
     # data_mask wird korrekt erkannt (vier Totstellen für time_pix=2**12 und 845-1200s)
     # (drei Totstellen für time_pix=2**12 und 845-1300s)
+
+    # maske muss für die 2d response ein ift feld mit signal domain nach dem time padding sein!
 
 
 def create_histograms(data, time_pix, energy_pix):
@@ -134,13 +137,26 @@ def get_instrument_factors():
 
 def scale_and_normalize(x, instrument_factors):
     # Faktoren aus Photon Count Daten pro Channel (instrument_factors) multiplizieren und
-    # mittels sinnvoller Skalierung normieren
+    # mittels sinnvoller Skalierung (sum(x) / sum(a*x) mit a = instrument_factors) normieren
     # Input/Output Dimensions: 3 x t_pix x 256
     if isinstance(x, ift.Field):
         x = x.val
     x_0 = x.copy()
+    x_sum_0 = np.sum(x_0, axis=2)
+
     x *= instrument_factors[:, np.newaxis, :]
-    x = x * np.sum(x_0, axis=2)[:, :, np.newaxis] / np.sum(x, axis=2)[:, :, np.newaxis]
+    x_sum = np.sum(x, axis=2)
+
+    # for numerical stability, change every 0 in x_sum to 1e-3.
+    # This does not change the factor as x_sum_0 is also 0 for all changed components.
+    # If D4PO does not see any 0s then take this part out! Because somehow all masked out parts don't have 0s anymore.
+    for i in range(x_sum.shape[0]):
+        for j in range(x_sum.shape[1]):
+            if x_sum[i, j] == 0 and x_sum_0[i, j] == 0:
+                x_sum[i, j] = 1e-3
+
+    x = x * x_sum_0[:, :, np.newaxis] / x_sum[:, :, np.newaxis]
+
     return x
 
 
@@ -222,7 +238,7 @@ def energy_response(s, energy_dicts=None, energies=None):
 
 def energy_response_adjoint(data, domain, energy_dicts=None, energies=None):
     """
-    Input: data as ift.Field(domain=UnstructuredDomain) with shape (3,256)
+    Input: data as ift.Field(domain=UnstructuredDomain) with shape (3, tpix, 256)
            domain of signal field
     Output: numpy array of signal field with photon counts in energy bins as elements
     """
@@ -238,7 +254,7 @@ def energy_response_adjoint(data, domain, energy_dicts=None, energies=None):
         for e in energies[ins]:
             # Sammle alle Photon Counts zusammen, für diesen energy bin des instrument ins
             # energy_dicts[ins][e][0] ist Liste an Channel numbers, die e befüllen, für instrument ins
-            photons_in_e_bin = np.sum(data[ins, :, energy_dicts[ins][e][0]], axis=1)
+            photons_in_e_bin = np.sum(data[ins, :, energy_dicts[ins][e][0]].T, axis=1)  # Wieso transpose???
 
             # Teile Photon Counts dieses energy bins auf die signal bins auf, die davon geschnitten werden
             # (unteren und oberen Schnittpunkt und die Bruchteile finden, mit denen diese zu füllen sind)
@@ -247,7 +263,7 @@ def energy_response_adjoint(data, domain, energy_dicts=None, energies=None):
             norm = p0+(1-p1)+(j-1-i)
             # Teile Photon Counts den Signal bins zu, die von bin e geschnitten werden
             signal[:, i] += p0*photons_in_e_bin/norm
-            signal[:, i+1:j] += photons_in_e_bin/norm
+            signal[:, i+1:j] += photons_in_e_bin[:, np.newaxis]/norm
             signal[:, j] += (1-p1)*photons_in_e_bin/norm
 
             i = j

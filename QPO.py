@@ -1,24 +1,31 @@
 import nifty4 as ift
+import numpy as np
 import utilities as QPOutils
 
 
 class EnergyTimeResponse(ift.LinearOperator):
 
-    # Input: 2D Histogram des Signals, domain muss tuple aus Zeit x Energie Räumen sein
-    # Output: 3 x 2D Histogramme der Daten, time_bins x instruments x energy channels
+    # Input: 2D Histogram des Signals, dim: 2xt_pix x e_pix [wegen des paddings 2xt_pix]
+    # domain muss tuple aus Zeit x Energie Räumen sein
+    # Output: 3 x 2D Histogramme der Daten, instruments x time_bins x energy channels
     # Bilde Signalvektor auf jeweiligen Datenraum ab (Zeit, Energie[verschiedene Binnings für verschiedene instrumente])
     # Bei feinem Signalvektor weniger Unstimmigkeiten mit Datenbinning!
     # Mask muss Input Dimensions haben!!
     def __init__(self, domain, mask=None):
         super(EnergyTimeResponse, self).__init__()
+
         self._domain = ift.DomainTuple.make(domain)
-        self._target = ift.DomainTuple.make(ift.UnstructuredDomain((3, domain.shape[0], 256)))
+        self._time_new_domain = ift.RGSpace(domain.shape[0] // 2, distances=domain[0].distances[0])
+        self._x_new_domain = ift.DomainTuple.make((self._time_new_domain, domain[1]))
+        self._target = ift.DomainTuple.make(ift.UnstructuredDomain((3, self._time_new_domain.shape[0], 256)))
+
         self._energy_dicts, self._energies = QPOutils.get_dicts(True, True)
         self._instrument_factors = QPOutils.get_instrument_factors()
+
         if mask is None:
-            self._M = ift.DiagonalOperator(ift.Field.ones(self._domain))
+            self._M = ift.DiagonalOperator(ift.Field.ones(self._x_new_domain))
         else:
-            self._M = ift.DiagonalOperator(ift.Field(self._domain, mask))
+            self._M = ift.DiagonalOperator(mask)
 
     def domain(self):
         """DomainTuple : the operator's input domain
@@ -65,23 +72,24 @@ class EnergyTimeResponse(ift.LinearOperator):
             depending on mode.
         """
         if mode == 1:
-            # iterate over energy dimension to get all rows living in time dimension and other way around
-            # Input for Time/Energy-Responses need to be ift Fields!
-
-            # Energy Response und Normierung
+            # padding im Zeitraum und Diagonaloperator der Maske
+            # Betrachte nur Hälfte des Signal Felds, ACHTUNG: Richtiger Abschnitt sollte durchgegeben werden!!!!!
+            x = ift.Field(self._x_new_domain, val=x.val[x.shape[0]//4: x.shape[0]//4 * 3, :])
             x = self._M.times(x)
+            # Energy Response und Normierung
             lam = QPOutils.energy_response(x, self._energy_dicts, self._energies)
             lam = QPOutils.scale_and_normalize(lam, self._instrument_factors)
-
             return ift.Field(ift.UnstructuredDomain(lam.shape), val=lam)
 
         elif mode == 2:
             # Instrumenten response adjungiert multiplizieren
             x = QPOutils.scale_and_normalize(x, 1/self._instrument_factors)
-            s = QPOutils.energy_response_adjoint(x, self._domain, self._energy_dicts, self._energies)
+            x = QPOutils.energy_response_adjoint(x, self._x_new_domain, self._energy_dicts, self._energies)
 
-            s = self._M.times(s)
-            return ift.Field(self._domain, val=s.val)
+            x = ift.Field(self._x_new_domain, val=x)
+            x = self._M.times(x)  # muss im Unstructered Domain leben und danach Padding rückgängig machen!
+            x = np.pad(x.val, ((self._domain.shape[0]//4, self._domain.shape[0]//4), (0, 0)), 'constant')
+            return ift.Field(self._domain, val=x)
 
         else:
             raise NotImplementedError('Mode %d currently not supported.' % mode)

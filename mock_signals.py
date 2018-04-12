@@ -2,16 +2,39 @@ import numpy as np
 import nifty4 as ift
 
 
-def mock_signal_energy_time(t_pix, t_volume, e_pix, e_volume):
+def mock_signal_energy_time(t_pix, t_volume, e_pix, e_volume, dead_times_data=False):
 
     time_domain = ift.RGSpace(t_pix, distances=t_volume / t_pix)
     energy_domain = ift.RGSpace(e_pix, distances=e_volume / e_pix)
     domain = ift.DomainTuple.make((time_domain, energy_domain))
     s = ift.Field(domain, val=np.ones((t_pix, e_pix), dtype=np.float64) * 100)
 
+    return s
+
     # apply some distribution to make signal look more realistic
     #s = ift.Field(x1, val=np.random.poisson(s.val))
-    return s
+
+
+def mock_mask(signal):
+    # soll auf gepaddetes signal wirken --> shape muss Hälfte der Zeit Dimension
+    time_new_domain = ift.RGSpace(signal.shape[0] // 2, distances=signal.domain[0].distances[0])
+    signal_new_domain = ift.DomainTuple.make((time_new_domain, signal.domain[1]))
+
+    # setting dead times of instrument
+    holes = 20
+    t_pix = time_new_domain.shape[0]
+    e_pix = signal.shape[1]
+    dead = np.random.randint(0, t_pix, size=holes)
+    length = np.random.randint(5, 50, size=holes)
+
+    dead_times = np.ones((t_pix, e_pix), dtype=np.float)
+
+    for ii in range(holes):
+        dead_times[dead[ii]:dead[ii]+length[ii], :] = 0.
+
+    mask = ift.Field(signal_new_domain, val=dead_times)
+
+    return mask
 
 
 def mock_signal_time(npix):

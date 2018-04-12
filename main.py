@@ -9,20 +9,48 @@ import numpy as np
 
 if __name__ == "__main__":
 
-    t_pix = 2**12
-    t_volume = 100
+    t_pix = 2**10
+    t_volume = 200
     e_pix = 2**10
     e_volume = 127
 
-    s = mock_signals.mock_signal_energy_time(t_pix, t_volume, e_pix, e_volume)
-    #time_mask = Oldutils.find_dead_times(3, data)
-    R = QPO.EnergyTimeResponse(s.domain)
+    # betrachte doppelte Zeit und Energie Dimensionen damit gepaddet werden kann
+    s = mock_signals.mock_signal_energy_time(t_pix * 2, t_volume * 2, e_pix * 2, e_volume * 2)
+
+    time_mask = mock_signals.mock_mask(s)
+    R = QPO.EnergyTimeResponse(s.domain, time_mask)
 
     lam = R.times(s)
-    #s_after = R.adjoint_times(lam)
+    s_after = R.adjoint_times(lam)
 
     x = np.linspace(0, t_volume, num=t_pix)
-    plt.imshow(lam.val[0, :, :].T, cmap='inferno', origin='lower', extent=(0, t_volume, 0, e_volume))
+    start_t = t_volume // 2
+
+    plt.subplot(231)
+    plt.imshow(lam.val[0, :, :].T, cmap='inferno', origin='lower', extent=(start_t, t_volume, 0, 256))
+    plt.title('PCU0')
+    plt.xlabel('Time')
+    plt.ylabel('Energy Channels')
+    plt.subplot(232)
+    plt.imshow(lam.val[1, :, :].T, cmap='inferno', origin='lower', extent=(start_t, t_volume, 0, 256))
+    plt.title('PCU2')
+    plt.xlabel('Time')
+    plt.ylabel('Energy Channels')
+    plt.subplot(233)
+    plt.imshow(lam.val[2, :, :].T, cmap='inferno', origin='lower', extent=(start_t, t_volume, 0, 256))
+    plt.title('PCU3')
+    plt.xlabel('Time')
+    plt.ylabel('Energy Channels')
+    plt.subplot(234)
+    plt.imshow(s.val.T, cmap='inferno', origin='lower', extent=(0, 2 * t_volume, 0, 2 * e_volume))
+    plt.title('Signal')
+    plt.xlabel('Time')
+    plt.ylabel('Energy [keV]')
+    plt.subplot(235)
+    plt.imshow(s_after.val.T, cmap='inferno', origin='lower', extent=(0, 2 * t_volume, 0, 2 * e_volume))
+    plt.title('Signal after Responses')
+    plt.xlabel('Time')
+    plt.ylabel('Energy [keV]')
 
     #y = np.linspace(0, e_volume, num=e_pix)
     """
