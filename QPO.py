@@ -17,7 +17,7 @@ class EnergyTimeResponse(ift.LinearOperator):
         self._domain = ift.DomainTuple.make(domain)
         self._time_new_domain = ift.RGSpace(domain.shape[0] // 2, distances=domain[0].distances[0])
         self._x_new_domain = ift.DomainTuple.make((self._time_new_domain, domain[1]))
-        self._target = ift.DomainTuple.make(ift.UnstructuredDomain((3, self._time_new_domain.shape[0], 256)))
+        self._target = ift.DomainTuple.make(ift.UnstructuredDomain((3, self._x_new_domain[0].shape[0], 256)))
 
         self._energy_dicts, self._energies = QPOutils.get_dicts(True, True)
         self._instrument_factors = QPOutils.get_instrument_factors()
@@ -27,18 +27,24 @@ class EnergyTimeResponse(ift.LinearOperator):
         else:
             self._M = ift.DiagonalOperator(mask)
 
+    def set_mask(self, mask):
+        self._M = ift.DiagonalOperator(mask)
+
+    @property
     def domain(self):
         """DomainTuple : the operator's input domain
 
             The domain on which the Operator's input Field lives."""
         return self._domain
 
+    @property
     def target(self):
         """DomainTuple : the operator's output domain
 
             The domain on which the Operator's output Field lives."""
         return self._target
 
+    @property
     def capability(self):
         """int : the supported operation modes
 
@@ -46,8 +52,7 @@ class EnergyTimeResponse(ift.LinearOperator):
         :attr:`INVERSE_TIMES`, and :attr:`ADJOINT_INVERSE_TIMES`,
         joined together by the "|" operator.
         """
-        return self.TIMES
-        return self.ADJOINT_TIMES
+        return self.TIMES | self.ADJOINT_TIMES
 
     def apply(self, x, mode):
         """ Applies the Operator to a given `x`, in a specified `mode`.
@@ -76,20 +81,25 @@ class EnergyTimeResponse(ift.LinearOperator):
             # Betrachte nur Hälfte des Signal Felds, ACHTUNG: Richtiger Abschnitt sollte durchgegeben werden!!!!!
             x = ift.Field(self._x_new_domain, val=x.val[x.shape[0]//4: x.shape[0]//4 * 3, :])
             x = self._M.times(x)
+
             # Energy Response und Normierung
-            lam = QPOutils.energy_response(x, self._energy_dicts, self._energies)
+            lam = QPOutils.energy_response(x, self._target, self._energy_dicts, self._energies)
             lam = QPOutils.scale_and_normalize(lam, self._instrument_factors)
+
             return ift.Field(ift.UnstructuredDomain(lam.shape), val=lam)
 
         elif mode == 2:
             # Instrumenten response adjungiert multiplizieren
-            x = QPOutils.scale_and_normalize(x, 1/self._instrument_factors)
+            x = QPOutils.scale_and_normalize(x, self._instrument_factors)
             x = QPOutils.energy_response_adjoint(x, self._x_new_domain, self._energy_dicts, self._energies)
 
             x = ift.Field(self._x_new_domain, val=x)
-            x = self._M.times(x)  # muss im Unstructered Domain leben und danach Padding rückgängig machen!
-            x = np.pad(x.val, ((self._domain.shape[0]//4, self._domain.shape[0]//4), (0, 0)), 'constant')
-            return ift.Field(self._domain, val=x)
+            x = self._M.times(x)
+
+            padd = np.zeros(self._domain.shape)
+            padd[padd.shape[0]//4: padd.shape[0]//4 * 3, :] = x.val
+
+            return ift.Field(self._domain, val=padd)
 
         else:
             raise NotImplementedError('Mode %d currently not supported.' % mode)

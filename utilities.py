@@ -13,13 +13,18 @@ ins_p = [341909/(341909+335600+329606), 335600 /
          (341909+335600+329606), 329606/(341909+335600+329606)]
 
 
-def get_time_mask(data, threshold=2):
+def get_time_mask(data, domain, threshold=2):
 
     # When extracting real mask, consider start and end point, because it will be applied after signal is padded
     # if binned_data is given, sum along instrument axis=0, and along energy axis=1
-    data = np.sum(np.sum(data, axis=0), axis=1)
+    if data.shape[0] == 3:
+        data = np.sum(np.sum(data, axis=0), axis=1)
+    else:
+        data = np.sum(data, axis=1)
 
-    data_mask = np.ones_like(data)
+    assert data.shape == domain.shape, "Wrong data shape of %d when creating time mask! Shape of %d needed" % (data.shape, domain.shape)
+
+    data_mask = np.ones(domain.shape)
     NotData = False
     dead_count = 0
 
@@ -136,27 +141,13 @@ def get_instrument_factors():
 
 
 def scale_and_normalize(x, instrument_factors):
-    # Faktoren aus Photon Count Daten pro Channel (instrument_factors) multiplizieren und
-    # mittels sinnvoller Skalierung (sum(x) / sum(a*x) mit a = instrument_factors) normieren
+    # Faktoren aus Photon Count Daten pro Channel (instrument_factors) skalieren und
+    # mittels sinnvoller Normierung (dim(a) / sum(a) mit a = instrument_factors) multiplizieren.
+    # Sinnvolle Normierung, da Mittelwert der gesamten Faktoren a_mittel = 1/dim(a) * sum(dim(a) * a / sum(a)) = 1
     # Input/Output Dimensions: 3 x t_pix x 256
     if isinstance(x, ift.Field):
         x = x.val
-    x_0 = x.copy()
-    x_sum_0 = np.sum(x_0, axis=2)
-
-    x *= instrument_factors[:, np.newaxis, :]
-    x_sum = np.sum(x, axis=2)
-
-    # for numerical stability, change every 0 in x_sum to 1e-3.
-    # This does not change the factor as x_sum_0 is also 0 for all changed components.
-    # If D4PO does not see any 0s then take this part out! Because somehow all masked out parts don't have 0s anymore.
-    for i in range(x_sum.shape[0]):
-        for j in range(x_sum.shape[1]):
-            if x_sum[i, j] == 0 and x_sum_0[i, j] == 0:
-                x_sum[i, j] = 1e-3
-
-    x = x * x_sum_0[:, :, np.newaxis] / x_sum[:, :, np.newaxis]
-
+    x = x.copy() * x.shape[2] * instrument_factors[:, np.newaxis, :] / np.sum(instrument_factors, axis=1)[:, np.newaxis, np.newaxis]
     return x
 
 
@@ -191,7 +182,7 @@ def get_mean_energy(energy_bins):
     return energy_bins_mean
 
 
-def energy_response(s, energy_dicts=None, energies=None):
+def energy_response(s, target_domain, energy_dicts=None, energies=None):
     """
     Take in signal vector s, which has elements of photon counts in energy bins in the signal domain.
     s is of type ift.Field. Its first component gives the photon count in the energy intervall:
@@ -207,27 +198,29 @@ def energy_response(s, energy_dicts=None, energies=None):
 
     # 1. Aufteilung auf Instrumente, signal dim: 3 x t_pix x e_pix
     signal = np.array([s.val*ins_p[0], s.val*ins_p[1], s.val*ins_p[2]])
-    data = np.zeros(shape=(3, s.shape[0], 256))
+    data = np.zeros(target_domain.shape)
 
     # 2. Einordnung in Energie bins der Instrumente
-    i = 0
-    p0 = 1.0  # verbleibender Bruchteil des aktuellen signal bins
     for ins in [0, 1, 2]:
+        i = 0
+        p0 = 1.0  # verbleibender Bruchteil des aktuellen signal bins
         for e in energies[ins]:
             # finde signal bin, der von e geschnitten wird
             j = int(e//dE)
             p1 = ((j+1)*dE-e)/dE  # neuer verbleibender Bruchteil des signal bins j
 
-            if i == j:
+            if i == j:  # energy bin im signal bin
                 photons_in_e_bin = (p0-p1)*signal[ins, :, i]
+
             else:
                 # Restanteil von bin i + alle bins zwischen i und j + Anteil von bin j
-                photons_in_e_bin = p0*signal[ins, :, i] + \
-                    np.sum(signal[ins, :, i+1:j], axis=1) + (1-p1)*signal[ins, :, j]
+                photons_in_e_bin = p0*signal[ins, :, i] + np.sum(signal[ins, :, i+1:j], axis=1)
+                if j <= signal.shape[2] - 1:
+                    photons_in_e_bin += (1-p1)*signal[ins, :, j]
 
             # 3. Aufteilung auf Channels
             data[ins, :, energy_dicts[ins][e][0]] = np.ma.outerproduct(photons_in_e_bin,
-                                                                       np.array([energy_dicts[ins][e][1]])).transpose()
+                                                                       np.array([energy_dicts[ins][e][1]])).T
 
             # setze Werte für nächste Energie
             p0 = p1
@@ -242,29 +235,43 @@ def energy_response_adjoint(data, domain, energy_dicts=None, energies=None):
            domain of signal field
     Output: numpy array of signal field with photon counts in energy bins as elements
     """
+    if isinstance(data, ift.Field):
+        data = data.val
 
     # energy bin width in signal
     dE = domain[1].distances[0]
     signal = np.zeros(shape=domain.shape)
     # take first element to be photon counts in energy intervall [0 keV, dE keV]
 
+    data = data.copy()
+
     for ins in [0, 1, 2]:
+        # Faktoren für Instrumentaufspaltung drauf multiplizieren
+        data[ins] *= ins_p[ins]
+
         i = 0  # letzter geschnittener Signal bin
         p0 = 1.0  # verbleibender Bruchteil des signal bins i
         for e in energies[ins]:
-            # Sammle alle Photon Counts zusammen, für diesen energy bin des instrument ins
-            # energy_dicts[ins][e][0] ist Liste an Channel numbers, die e befüllen, für instrument ins
-            photons_in_e_bin = np.sum(data[ins, :, energy_dicts[ins][e][0]].T, axis=1)  # Wieso transpose???
+            # Verteile Photon Counts der Energy Channels auf Energy Bins mit gleichen Faktoren wie in energy_response!
+            # Gleiche Faktoren werden benötigt, da dies die Adjungierte der Matrix sein soll, nicht die Inverse!
+            # energy_dicts[ins][e][0] ist Liste an Channel numbers, die e befüllen, für instrument ins+
+            photons_in_e_bin = np.sum(data[ins, :, energy_dicts[ins][e][0]] * np.array([energy_dicts[ins][e][1]]).T, axis=0)
 
             # Teile Photon Counts dieses energy bins auf die signal bins auf, die davon geschnitten werden
             # (unteren und oberen Schnittpunkt und die Bruchteile finden, mit denen diese zu füllen sind)
-            j = int(e//dE)  # oberer geschnittener signal bin
+            j = int(e//dE)  # untere Grenze des geschnittenen signal bins, da abgerundet wird
+
             p1 = ((j+1)*dE-e)/dE  # neuer verbleibender Bruchteil des signal bins j
-            norm = p0+(1-p1)+(j-1-i)
+
             # Teile Photon Counts den Signal bins zu, die von bin e geschnitten werden
-            signal[:, i] += p0*photons_in_e_bin/norm
-            signal[:, i+1:j] += photons_in_e_bin[:, np.newaxis]/norm
-            signal[:, j] += (1-p1)*photons_in_e_bin/norm
+            if i == j:  # energy bin liegt im signal bin
+                signal[:, i] += (p0-p1)*photons_in_e_bin
+
+            else:
+                signal[:, i] += p0*photons_in_e_bin
+                signal[:, i+1:j] += photons_in_e_bin[:, np.newaxis]
+                if j <= signal.shape[1] - 1:
+                    signal[:, j] += (1-p1)*photons_in_e_bin
 
             i = j
             p0 = p1

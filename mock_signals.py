@@ -15,15 +15,12 @@ def mock_signal_energy_time(t_pix, t_volume, e_pix, e_volume, dead_times_data=Fa
     #s = ift.Field(x1, val=np.random.poisson(s.val))
 
 
-def mock_mask(signal):
-    # soll auf gepaddetes signal wirken --> shape muss Hälfte der Zeit Dimension
-    time_new_domain = ift.RGSpace(signal.shape[0] // 2, distances=signal.domain[0].distances[0])
-    signal_new_domain = ift.DomainTuple.make((time_new_domain, signal.domain[1]))
+def mock_mask(domain):
 
     # setting dead times of instrument
     holes = 20
-    t_pix = time_new_domain.shape[0]
-    e_pix = signal.shape[1]
+    t_pix = domain.shape[0]
+    e_pix = domain.shape[1]
     dead = np.random.randint(0, t_pix, size=holes)
     length = np.random.randint(5, 50, size=holes)
 
@@ -32,7 +29,7 @@ def mock_mask(signal):
     for ii in range(holes):
         dead_times[dead[ii]:dead[ii]+length[ii], :] = 0.
 
-    mask = ift.Field(signal_new_domain, val=dead_times)
+    mask = ift.Field(domain, val=dead_times)
 
     return mask
 
