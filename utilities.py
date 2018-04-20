@@ -2,17 +2,7 @@ import numpy as np
 import nifty4 as ift
 import scipy.sparse
 import scipy.sparse.linalg
-
-"""
-sensible values:
-start_time = 845
-end_time = 1200
-time_pix = 2**12
-"""
-data_path = "/home/andi/bachelor/data/originaldata/SGR1806_time_PCUID_energychannel.txt"
-energy_path = "/home/andi/bachelor/data/arrangeddata/energy_channels.txt"
-ins_p = [341909/(341909+335600+329606), 335600 /
-         (341909+335600+329606), 329606/(341909+335600+329606)]
+import constants as const
 
 
 def get_time_mask(data, domain, threshold=2):
@@ -97,8 +87,7 @@ def get_data(start_time, end_time, time_pix, seperate_instruments=False, return_
     """
 
     # load data and select time intervall
-    data_path = "/home/andi/bachelor/data/originaldata/SGR1806_time_PCUID_energychannel.txt"
-    data = np.loadtxt(data_path).transpose()
+    data = np.loadtxt(const.data_path).transpose()
     data[0] = data[0] - data[0].min()
     von = np.argmax(data[0] > float(start_time))
     bis = np.argmax(data[0] > float(end_time))
@@ -106,7 +95,7 @@ def get_data(start_time, end_time, time_pix, seperate_instruments=False, return_
 
     # convert channels to energy in keV
     if not seperate_instruments:
-        energy = np.loadtxt(energy_path, usecols=[6, 7], skiprows=25).transpose()
+        energy = np.loadtxt(const.energy_path, usecols=[6, 7], skiprows=25).transpose()
         instrument = np.array(data[1], dtype=int)
         instrument[instrument > 0] = 1  # distinguish between PCU0:=0 and PCU1234:=1 energy
         channel = np.array(data[2], dtype=int)
@@ -134,7 +123,7 @@ def get_data(start_time, end_time, time_pix, seperate_instruments=False, return_
 
 def get_instrument_factors():
     # create a response from all data available
-    data = np.loadtxt(data_path, usecols=[1, 2]).transpose()
+    data = np.loadtxt(const.data_path, usecols=[1, 2]).transpose()
     # as for instruments 2 and 3 no photons are registered in the first two bins,
     # histogram does not those bins up --> insert 0s
     out = np.array([np.histogram(data[1, data[0] == 0], bins=256)[0].astype(float),
@@ -194,6 +183,7 @@ def build_energy_response(signal_domain):
     t_pix = signal_domain.shape[0]//2
     e_pix = signal_domain.shape[1]
     energy_dicts, energies = get_dicts(True, True)
+    ins_p = const.ins_p
 
     # f: fractions mit denen Eintrag aus Signal multipliziert wird
     # s: 1-D Indizes der Signalelemente
@@ -333,7 +323,7 @@ def get_dicts(return_energies=False, return_channel_fractions=False):
 
     """
 
-    energies = np.loadtxt(energy_path, usecols=[6, 7], skiprows=25).transpose()
+    energies = np.loadtxt(const.energy_path, usecols=[6, 7], skiprows=25).transpose()
     unique, counts = np.unique(energies[0], return_counts=True)
     energies_PCU0 = dict(zip(unique, counts))
     for e in unique:
@@ -346,7 +336,7 @@ def get_dicts(return_energies=False, return_channel_fractions=False):
     energy_dicts = [energies_PCU0, energies_PCU23]
 
     if return_channel_fractions:
-        data = np.loadtxt(data_path, usecols=[1, 2]).transpose()
+        data = np.loadtxt(const.data_path, usecols=[1, 2]).transpose()
         d = []
 
         for i in [0, 2, 3]:

@@ -22,7 +22,7 @@ k_0 = x_0.get_default_codomain()
 p_0 = ift.PowerSpace(harmonic_partner=k_0)
 
 # energy space
-x_1 = ift.RGSpace(e_pix, distances=e_volume / e_pix)
+x_1 = ift.RGSpace(2 * e_pix, distances=e_volume / e_pix)
 k_1 = x_1.get_default_codomain()
 p_1 = ift.PowerSpace(harmonic_partner=k_1)
 
@@ -62,7 +62,7 @@ R = QPO.Response(signal_domain)
 # Load Data ###
 data = QPOutils.get_data(start_time, end_time, t_pix, seperate_instruments=True)
 time_mask = QPOutils.get_time_mask(data, R.time_padded_domain, threshold=2)
-data = ift.Field(R.target, val=np.clip(data, 1e-10, data.max()))
+data = ift.Field(R.target, val=data)  # np.clip(data, 1e-10, data.max()))
 
 # time mask
 R.set_mask(time_mask)
@@ -85,16 +85,8 @@ P = Problem(data, statistics='PLN')
 P.add(m_initial, R=R, Signal_attributes=[[tau_0, alpha_0, q_0, s_0, True],
                                          [tau_1, alpha_1, q_1, s_1, True]])
 
-start_t = t_volume // 2
-end_t = t_volume // 2 * 3
-
-plt.imshow(P.maps[0].val.T, cmap='inferno', origin='lower', extent=(start_t, end_t, 0, e_volume))
-plt.title('Initial Signal Guess')
-plt.xlabel('Time')
-plt.ylabel('Energy Channels')
-
-plt.subplots_adjust(left=0.04, right=0.99, hspace=0.23, top=0.95, bottom=0.06)
-plt.show()
+start_t = 2 * t_volume // 4
+end_t = 2 * t_volume // 4 * 3
 
 data = P.data
 
@@ -104,10 +96,10 @@ D4PO(1)
 P_res = D4PO.results
 
 
-plt.imshow(P_res.maps[0].val.T, cmap='inferno', origin='lower', extent=(start_t, end_t, 0, e_volume))
+plt.imshow(P_res.maps[0].val[t_pix//4:t_pix//4*3, :e_pix//2].T, cmap='inferno', origin='lower', extent=(start_t, end_t, 0, e_volume // 2))
 plt.title('Signal Reconstruction')
 plt.xlabel('Time')
-plt.ylabel('Energy Channels')
+plt.ylabel('Energy [keV]')
 
 plt.subplots_adjust(left=0.04, right=0.99, hspace=0.23, top=0.95, bottom=0.06)
 plt.show()
