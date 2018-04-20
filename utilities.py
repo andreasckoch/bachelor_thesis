@@ -1,5 +1,7 @@
 import numpy as np
 import nifty4 as ift
+import scipy.sparse
+import scipy.sparse.linalg
 
 """
 sensible values:
@@ -22,8 +24,6 @@ def get_time_mask(data, domain, threshold=2):
     else:
         data = np.sum(data, axis=1)
 
-    assert data.shape == domain.shape, "Wrong data shape of %d when creating time mask! Shape of %d needed" % (data.shape, domain.shape)
-
     data_mask = np.ones(domain.shape)
     NotData = False
     dead_count = 0
@@ -32,7 +32,7 @@ def get_time_mask(data, domain, threshold=2):
         if i == data.shape[0] - (threshold - 1):
             break
         if np.sum(data[i:i + threshold]) == 0:
-            data_mask[i:i + threshold] = 0
+            data_mask[i:i + threshold] = 1e-10
             if NotData is False:
                 dead_count += 1
             NotData = True
@@ -42,31 +42,43 @@ def get_time_mask(data, domain, threshold=2):
     print('Detected %d dead intervalls in the data.' % (int(dead_count)))
     #np.savetxt('/home/marvin/code/Marvin_Baumann/data_mask-1.txt', data_mask)
 
-    return data_mask
+    return ift.Field(domain, val=data_mask)
     # data_mask wird korrekt erkannt (vier Totstellen für time_pix=2**12 und 845-1200s)
     # (drei Totstellen für time_pix=2**12 und 845-1300s)
 
     # maske muss für die 2d response ein ift feld mit signal domain nach dem time padding sein!
 
 
-def create_histograms(data, time_pix, energy_pix):
+def create_histograms(data, time_pix):
     # create histograms seperately for each instrument and save in 3D array binned_data
 
-    binned_data = np.zeros(shape=(3, time_pix, energy_pix))
+    # problem beim binning entlang der Energie, denn PCU23 haben keine Counts in channel 0,1
+    # welche manuell eingefügt werden. Dementsprechend wird PCU0 mit 256 bins  und PCU23 mit
+    # 254 bins in der Energie gebinnt. Danach werden die ersten beiden (leeren) bins zu PCU23
+    # hinzugefügt.
+
+    binned_data = np.zeros(shape=(3, time_pix, 256), dtype=np.float64)
     time_bins = np.zeros(shape=(3, time_pix+1))
-    if energy_pix.size == 1:   # was genau wird hier gmeacht??
-        energy_bins = np.zeros(shape=(3, energy_pix+1))
-    else:
-        energy_bins = energy_pix  # in case i give the bins directly
+    energy_bins = np.zeros(shape=(3, 257))
 
     binned_data[0], time_bins[0], energy_bins[0] = np.histogram2d(
-        data[0, data[1] == 0], data[2, data[1] == 0], bins=[time_pix, energy_pix])
+        data[0, data[1] == 0], data[2, data[1] == 0], bins=[time_pix, 256])
 
-    binned_data[1], time_bins[1], energy_bins[1] = np.histogram2d(
-        data[0, data[1] == 2], data[2, data[1] == 2], bins=[time_pix, energy_pix])
+    binned_data[1, :, 2:], time_bins[1], energy_bins[1, 2:] = np.histogram2d(
+        data[0, data[1] == 2], data[2, data[1] == 2], bins=[time_pix, 254])
 
-    binned_data[2], time_bins[2], energy_bins[2] = np.histogram2d(
-        data[0, data[1] == 3], data[2, data[1] == 3], bins=[time_pix, energy_pix])
+    binned_data[2, :, 2:], time_bins[2], energy_bins[2, 2:] = np.histogram2d(
+        data[0, data[1] == 3], data[2, data[1] == 3], bins=[time_pix, 254])
+
+    # add zeros for energy channels 0 and 1, because they are not caught by binning
+    # binned_data[1, :, :2] = 1e-3
+    # binned_data[2, :, :2] = 1e-3
+    # binned_data[2] = np.insert(binned_data[2], 0, np.zeros(shape=(time_pix, 2)))
+    # binned_data[1] = np.insert(binned_data[1], 0, np.zeros(shape=(time_pix, 2)))
+
+    # add appropriate energy_bins, for plotting to work later on
+    energy_bins[1, 1] = 1
+    energy_bins[2, 1] = 1
 
     return binned_data, time_bins, energy_bins
 
@@ -88,29 +100,21 @@ def get_data(start_time, end_time, time_pix, seperate_instruments=False, return_
     data_path = "/home/andi/bachelor/data/originaldata/SGR1806_time_PCUID_energychannel.txt"
     data = np.loadtxt(data_path).transpose()
     data[0] = data[0] - data[0].min()
-
-    if return_all_data:
-        return data
-
-    # if start and end time were specified
-    data = data[:, np.argmax(data[0] > float(start_time)):np.argmax(data[0] > float(end_time))]
+    von = np.argmax(data[0] > float(start_time))
+    bis = np.argmax(data[0] > float(end_time))
+    data = data[:, von:bis]
 
     # convert channels to energy in keV
     if not seperate_instruments:
-        energy_path = "/home/andi/bachelor/data/arrangeddata/energy_channels.txt"
-        energy = np.loadtxt(energy_path, usecols=[
-                            6, 7], skiprows=25).transpose()
+        energy = np.loadtxt(energy_path, usecols=[6, 7], skiprows=25).transpose()
         instrument = np.array(data[1], dtype=int)
-        # distinguish between PCU0:=0 and PCU1234:=1 energy
-        instrument[instrument > 0] = 1
+        instrument[instrument > 0] = 1  # distinguish between PCU0:=0 and PCU1234:=1 energy
         channel = np.array(data[2], dtype=int)
         data = np.array([data[0], energy[instrument, channel]])
 
     # bin data, create histogram
     if seperate_instruments:
-        energy_pix = int(np.max(data[2])+1)
-        binned_data, time_bins, energy_bins = create_histograms(
-            data, time_pix, energy_pix)
+        binned_data, time_bins, energy_bins = create_histograms(data, time_pix)
     else:
         energy_pix = 256
         binned_data, time_bins, energy_bins = np.histogram2d(
@@ -147,7 +151,8 @@ def scale_and_normalize(x, instrument_factors):
     # Input/Output Dimensions: 3 x t_pix x 256
     if isinstance(x, ift.Field):
         x = x.val
-    x = x.copy() * x.shape[2] * instrument_factors[:, np.newaxis, :] / np.sum(instrument_factors, axis=1)[:, np.newaxis, np.newaxis]
+    f = x.shape[2] * instrument_factors[:, np.newaxis, :] / np.sum(instrument_factors, axis=1)[:, np.newaxis, np.newaxis]
+    x = x.copy() * f
     return x
 
 
@@ -182,101 +187,111 @@ def get_mean_energy(energy_bins):
     return energy_bins_mean
 
 
-def energy_response(s, target_domain, energy_dicts=None, energies=None):
-    """
-    Take in signal vector s, which has elements of photon counts in energy bins in the signal domain.
-    s is of type ift.Field. Its first component gives the photon count in the energy intervall:
-    [0 keV, s.domain.distances kev]
+def build_energy_response(signal_domain):
 
-    Output: data array with shape (3,256)
-    """
-    # energy bin width in signal
-    dE = s.domain[1].distances[0]
-    if energy_dicts is None or energies is None:
-        energy_dicts, energies = get_dicts(
-            return_energies=True, return_channel_fractions=True)
+    # Load constants
+    dE = signal_domain[1].distances[0]
+    t_pix = signal_domain.shape[0]//2
+    e_pix = signal_domain.shape[1]
+    energy_dicts, energies = get_dicts(True, True)
 
-    # 1. Aufteilung auf Instrumente, signal dim: 3 x t_pix x e_pix
-    signal = np.array([s.val*ins_p[0], s.val*ins_p[1], s.val*ins_p[2]])
-    data = np.zeros(target_domain.shape)
-
-    # 2. Einordnung in Energie bins der Instrumente
-    for ins in [0, 1, 2]:
-        i = 0
-        p0 = 1.0  # verbleibender Bruchteil des aktuellen signal bins
-        for e in energies[ins]:
-            # finde signal bin, der von e geschnitten wird
-            j = int(e//dE)
-            p1 = ((j+1)*dE-e)/dE  # neuer verbleibender Bruchteil des signal bins j
-
-            if i == j:  # energy bin im signal bin
-                photons_in_e_bin = (p0-p1)*signal[ins, :, i]
-
-            else:
-                # Restanteil von bin i + alle bins zwischen i und j + Anteil von bin j
-                photons_in_e_bin = p0*signal[ins, :, i] + np.sum(signal[ins, :, i+1:j], axis=1)
-                if j <= signal.shape[2] - 1:
-                    photons_in_e_bin += (1-p1)*signal[ins, :, j]
-
-            # 3. Aufteilung auf Channels
-            data[ins, :, energy_dicts[ins][e][0]] = np.ma.outerproduct(photons_in_e_bin,
-                                                                       np.array([energy_dicts[ins][e][1]])).T
-
-            # setze Werte für nächste Energie
-            p0 = p1
-            i = j
-
-    return data
-
-
-def energy_response_adjoint(data, domain, energy_dicts=None, energies=None):
-    """
-    Input: data as ift.Field(domain=UnstructuredDomain) with shape (3, tpix, 256)
-           domain of signal field
-    Output: numpy array of signal field with photon counts in energy bins as elements
-    """
-    if isinstance(data, ift.Field):
-        data = data.val
-
-    # energy bin width in signal
-    dE = domain[1].distances[0]
-    signal = np.zeros(shape=domain.shape)
-    # take first element to be photon counts in energy intervall [0 keV, dE keV]
-
-    data = data.copy()
+    # f: fractions mit denen Eintrag aus Signal multipliziert wird
+    # s: 1-D Indizes der Signalelemente
+    # d: 1-D Indizes der Datenelemente
+    f = []
+    s = []
+    d = []
 
     for ins in [0, 1, 2]:
-        # Faktoren für Instrumentaufspaltung drauf multiplizieren
-        data[ins] *= ins_p[ins]
-
-        i = 0  # letzter geschnittener Signal bin
-        p0 = 1.0  # verbleibender Bruchteil des signal bins i
+        s_i = 0  # Index des zuletzt geschnittenen signal bins
+        p0 = 1.0  # verbleibender Bruchteil des zuletzt geschnittenen signal bins
         for e in energies[ins]:
-            # Verteile Photon Counts der Energy Channels auf Energy Bins mit gleichen Faktoren wie in energy_response!
-            # Gleiche Faktoren werden benötigt, da dies die Adjungierte der Matrix sein soll, nicht die Inverse!
-            # energy_dicts[ins][e][0] ist Liste an Channel numbers, die e befüllen, für instrument ins+
-            photons_in_e_bin = np.sum(data[ins, :, energy_dicts[ins][e][0]] * np.array([energy_dicts[ins][e][1]]).T, axis=0)
+            """
+            i bis j sind signal bins (entlang Energie), die auf diesen data energy bin e aufgeteilt werden.
 
-            # Teile Photon Counts dieses energy bins auf die signal bins auf, die davon geschnitten werden
-            # (unteren und oberen Schnittpunkt und die Bruchteile finden, mit denen diese zu füllen sind)
-            j = int(e//dE)  # untere Grenze des geschnittenen signal bins, da abgerundet wird
+            Kreiere Listelemente (fraction ist Anteil für jeweiligen Channel):
+            für i:  f0,0 = ins_p* p0*fraction0  für ersten Channel dieses data energy bins und erster time pixel
+                    ...
+                    f0,t_pix = ins_p* p0*fraction0 # selbiger wie f0,0 aber für letzten time pixel
+            Indizes:   
+                    # Signal-Indizes mit Energie pixel index i und allen time_pixels
+                    s0[0:t_pix] = np.ravel_multi_index([range(t_pix), [i,]], (t_pix, e_pix))
+                    # Daten-Indizes des Instruments ins und Channels channel0 mit allen time_pixels
+                    d0[0:t_pix] = np.ravel_multi_index([[ins,],range(t_pix), [channel0,]], (3,t_pix, 256))
 
-            p1 = ((j+1)*dE-e)/dE  # neuer verbleibender Bruchteil des signal bins j
+                    f1,0 = ins_p* p0*fraction1  für zweiten Channel...
+                    ...
+                    f2,0 = ins_p* p0*fraction2  für dritten
+                    ...
+                    f3,0 = ins_p* p0*fraction3  für vierten
+                    ...
+            für     f4,0 = ins_p* fraction0     für ersten Channel dieses data energy bins
+            i+1:j : ...
+                    f5,0 = ins_p* fraction1     ...
+                    ...
+                    f6,0 = ins_p* fraction2
+                    ...
+                    f7,0 = ins_p* fraction3
+                    ...
+            für j:  f8,0 = ins_p* (1-p1)*fraction0
+                    ...
+                    f9,0 = ins_p* (1-p1)*fraction1
+                    ...
+                    f10,0 = ins_p* (1-p1)*fraction2
+                    ...
+                    f11,0 = ins_p* (1-p1)*fraction3
+                    ...
+                    f11,t_pix = ins_p* (1-p1)*fraction3
 
-            # Teile Photon Counts den Signal bins zu, die von bin e geschnitten werden
-            if i == j:  # energy bin liegt im signal bin
-                signal[:, i] += (p0-p1)*photons_in_e_bin
+            """
 
+            # finde signal bin index, der von e geschnitten wird
+            s_j = int(e//dE)
+            p1 = ((s_j+1)*dE-e)/dE  # neuer verbleibender Bruchteil des signal bins s_j
+
+            if s_i == s_j:
+                for frac_i, channel in enumerate(energy_dicts[ins][e][0]):
+                    f_tmp = [ins_p[ins]*(p0-p1)*energy_dicts[ins][e][1][frac_i]]*t_pix
+                    s_tmp = np.ravel_multi_index([range(t_pix), [s_i, ]], (t_pix, e_pix))
+                    d_tmp = np.ravel_multi_index([[ins, ], range(t_pix), [channel, ]], (3, t_pix, 256))
+                    f.extend(f_tmp)
+                    s.extend(s_tmp)
+                    d.extend(d_tmp)
             else:
-                signal[:, i] += p0*photons_in_e_bin
-                signal[:, i+1:j] += photons_in_e_bin[:, np.newaxis]
-                if j <= signal.shape[1] - 1:
-                    signal[:, j] += (1-p1)*photons_in_e_bin
+                for frac_i, channel in enumerate(energy_dicts[ins][e][0]):
 
-            i = j
+                    # s_i
+                    f_tmp = [ins_p[ins]*p0*energy_dicts[ins][e][1][frac_i]]*t_pix
+                    s_tmp = np.ravel_multi_index([range(t_pix), [s_i, ]], (t_pix, e_pix))
+                    d_tmp = np.ravel_multi_index([[ins, ], range(t_pix), [channel, ]], (3, t_pix, 256))
+                    f.extend(f_tmp)
+                    s.extend(s_tmp)
+                    d.extend(d_tmp)
+
+                    # s_i+1:s_j
+                    for s_ij in range(s_i+1, s_j):
+                        f_tmp = [ins_p[ins]*energy_dicts[ins][e][1][frac_i]]*t_pix
+                        s_tmp = np.ravel_multi_index([range(t_pix), [s_ij, ]], (t_pix, e_pix))
+                        d_tmp = np.ravel_multi_index([[ins, ], range(t_pix), [channel, ]], (3, t_pix, 256))
+                        f.extend(f_tmp)
+                        s.extend(s_tmp)
+                        d.extend(d_tmp)
+
+                    # s_j
+                    if s_j < e_pix:
+                        f_tmp = [ins_p[ins]*(1-p1)*energy_dicts[ins][e][1][frac_i]]*t_pix
+                        s_tmp = np.ravel_multi_index([range(t_pix), [s_j, ]], (t_pix, e_pix))
+                        d_tmp = np.ravel_multi_index([[ins, ], range(t_pix), [channel, ]], (3, t_pix, 256))
+                        f.extend(f_tmp)
+                        s.extend(s_tmp)
+                        d.extend(d_tmp)
+
+            # setze Werte für nächsten Energie bin
             p0 = p1
+            s_i = s_j
 
-    return signal
+    energy_response = scipy.sparse.coo_matrix((f, (d, s)), shape=(3*t_pix*256, t_pix*e_pix)).tocsc()
+    return scipy.sparse.linalg.aslinearoperator(energy_response)
 
 
 def get_dicts(return_energies=False, return_channel_fractions=False):
@@ -284,6 +299,37 @@ def get_dicts(return_energies=False, return_channel_fractions=False):
     return_energies == True : return array of energy bins per instrument
 
     return_channel_fractions==False : return energy_dicts without fractions, with PCU2 and PCU3 taken together
+
+    if both true (usual usecase), energies looks like this:
+        [[1.95 .. 126.87]    # energy levels of PCU0 (as numpy array)
+         [2.06 .. 117.86]    # energy levels of PCU2 (as numpy array)
+         [2.06 .. 117.86]]  # energy levels of PCU3 (as numpy array)
+
+    energy_dicts looks like this:
+    [  # dict for PCU0, which keys are the energy bins of PCU0
+     { 1.95: [[0, 1, 2, 3, 4], # numbers of energy channels that feed into this energy bin
+    [0.0008764241893076249,    # fraction of photons that go into this channel
+     0.0008764241893076249,    # in case they fell into this energy bin 1.95keV
+     0.007011393514460999,
+     0.28659070990359337,
+     0.7046450482033304]],
+     ...
+    },
+    {...}, # dict for PCU2 with same structure as above
+    {...}  # dict for PCU3 with same structure as above
+    ]
+
+    Example:
+    To get Channel numbers of the first energy bin of the first intrument (which has energy 1.95keV), do this:
+    instrument = 0 # first instrument
+    energy_bin = energies[instrument][0] # read out first energy of instrument
+    # get channel numbers of energy_bin
+    print(energy_dicts[instrument][energy_bin][0]) # Result: [0, 1, 2, 3, 4]
+    # get fractions of the channels of this energy bin (take second element)
+    print(energy_dicts[instrument][energy_bin][1])
+    # Result: [0.0008764241893076249, 0.0008764241893076249, 0.007011393514460999, 0.28659070990359337, 0.7046450482033304]]
+
+
 
     """
 
@@ -298,7 +344,6 @@ def get_dicts(return_energies=False, return_channel_fractions=False):
         energies_PCU23[e] = [np.argmax(energies[1] >= e)+n for n in range(energies_PCU23[e])]
 
     energy_dicts = [energies_PCU0, energies_PCU23]
-    # print(energy_dicts[0][104.46])
 
     if return_channel_fractions:
         data = np.loadtxt(data_path, usecols=[1, 2]).transpose()
@@ -322,11 +367,12 @@ def get_dicts(return_energies=False, return_channel_fractions=False):
                 p = [d[i][n]/norm for n in energy_dicts[i][e]]
                 energy_dicts[i][e] = [energy_dicts[i][e], p]
 
+        energy_dicts[1][2.06][1][0] = 1e-5
+        energy_dicts[1][2.06][1][1] = 1e-5
+        energy_dicts[2][2.06][1][0] = 1e-5
+        energy_dicts[2][2.06][1][1] = 1e-5
+
     if return_energies:
         return energy_dicts, energies
     else:
         return energy_dicts
-
-
-if __name__ == "__main__":
-    get_instrument_response()

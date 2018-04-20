@@ -1,65 +1,113 @@
-import QPO
-import utilities as QPOutils
-# import utilities_old as Oldutils
-# import mock_data_s_x as mock_data
-import mock_signals
-# import matplotlib.pyplot as plt
-# import numpy as np
+import numpy as np
 import nifty4 as ift
+import utilities as QPOutils
+import QPO
+import Solver
+import matplotlib.pyplot as plt
 
-if __name__ == "__main__":
+from d4po.problem import Problem
+from d4po import HamiltonianNormController
+from d4po.Energy import PLNMapEnergy
 
-    _, energies = QPOutils.get_dicts(return_energies=True, return_channel_fractions=True)
-    t_pix = 2**10
-    t_volume = 2 * 200
-    e_pix = 2 * 129
-    e_volume = 2 * 127
+start_time = 845
+end_time = 1200
+t_pix = 2**11
+t_volume = end_time - start_time
+e_pix = 512
+e_volume = 2 * 127
 
-    # betrachte doppelte Zeit und Energie Dimensionen damit gepaddet werden kann
-    s = mock_signals.mock_signal_energy_time(t_pix, t_volume, e_pix, e_volume)
+# time space
+x_0 = ift.RGSpace(2 * t_pix, distances=t_volume / t_pix)
+k_0 = x_0.get_default_codomain()
+p_0 = ift.PowerSpace(harmonic_partner=k_0)
 
-    R = QPO.EnergyTimeResponse(s.domain)
-    time_mask = mock_signals.mock_mask(R._x_new_domain)
-    R.set_mask(time_mask)
+# energy space
+x_1 = ift.RGSpace(e_pix, distances=e_volume / e_pix)
+k_1 = x_1.get_default_codomain()
+p_1 = ift.PowerSpace(harmonic_partner=k_1)
 
-    ift.extra.consistency_check(R, rtol=1)
-    print("All Good!")
+# Power Spectra ###
+# Time ##
+# setting signal parameters
+lambda_s_0 = 2.5  # signal correlation length
+sigma_s_0 = 4.5  # signal variance
 
-    """
-    lam = R.times(s)
+# calculating parameters
+total_volume_0 = t_volume
+k0_0 = 4. / (2 * np.pi * lambda_s_0)
+a_s_0 = sigma_s_0 ** 2. * lambda_s_0 * total_volume_0
 
-    s_after = R.adjoint_times(lam.copy())
+# creating Power Operator with given spectrum
+spec_s_0 = (lambda k: a_s_0 / (1 + (k / k0_0) ** 2) ** 2)
+tau_0 = ift.log(ift.Field(p_0, val=spec_s_0(p_0.k_lengths), dtype=np.float64))
 
-    x = np.linspace(0, t_volume, num=t_pix)
-    start_t = t_volume // 2
-    end_t = t_volume // 2 * 3
+# Energy ##
+# setting signal parameters
+lambda_s_1 = .2  # signal correlation length
+sigma_s_1 = .3  # signal variance
 
-    plt.subplot(231)
-    plt.imshow(lam.val[0, :, :].T, cmap='inferno', origin='lower', extent=(start_t, end_t, 0, 256))
-    plt.title('PCU0')
-    plt.xlabel('Time')
-    plt.ylabel('Energy Channels')
-    plt.subplot(232)
-    plt.imshow(lam.val[1, :, :].T, cmap='inferno', origin='lower', extent=(start_t, end_t, 0, 256))
-    plt.title('PCU2')
-    plt.xlabel('Time')
-    plt.ylabel('Energy Channels')
-    plt.subplot(233)
-    plt.imshow(lam.val[2, :, :].T, cmap='inferno', origin='lower', extent=(start_t, end_t, 0, 256))
-    plt.title('PCU3')
-    plt.xlabel('Time')
-    plt.ylabel('Energy Channels')
-    plt.subplot(234)
-    plt.imshow(s.val.T, cmap='inferno', origin='lower', extent=(0, 2 * t_volume, 0, 2 * e_volume))
-    plt.title('Signal')
-    plt.xlabel('Time')
-    plt.ylabel('Energy [keV]')
-    plt.subplot(235)
-    plt.imshow(s_after.val.T, cmap='inferno', origin='lower', extent=(0, 2 * t_volume, 0, 2 * e_volume))
-    plt.title('Signal after Responses')
-    plt.xlabel('Time')
-    plt.ylabel('Energy [keV]')
-	
-    plt.subplots_adjust(left=0.04, right=0.99, hspace=0.23, top=0.95, bottom=0.06)
-    plt.show()
-	"""
+# calculating parameters
+total_volume_1 = e_volume
+k0_1 = 4. / (2 * np.pi * lambda_s_1)
+a_s_1 = sigma_s_1 ** 2. * lambda_s_1 * total_volume_1
+
+# creating Power Operator with given spectrum
+spec_s_1 = (lambda k: a_s_1 / (1 + (k / k0_1) ** 2) ** 2)
+tau_1 = ift.log(ift.Field(p_1, val=spec_s_1(p_1.k_lengths), dtype=np.float64))
+
+# Build Response ###
+signal_domain = ift.DomainTuple.make((x_0, x_1))
+R = QPO.Response(signal_domain)
+
+# Load Data ###
+data = QPOutils.get_data(start_time, end_time, t_pix, seperate_instruments=True)
+time_mask = QPOutils.get_time_mask(data, R.time_padded_domain, threshold=2)
+data = ift.Field(R.target, val=np.clip(data, 1e-10, data.max()))
+
+# time mask
+R.set_mask(time_mask)
+
+# initial guesses
+m_initial = ift.Field(R.domain, val=0.5)
+
+# setting hierarchical parameters into 0-th subdomain
+alpha_0 = ift.Field(p_0, val=1.)
+q_0 = ift.Field(p_0, val=1e-12)
+s_0 = 1.
+
+# setting hierarchical parameters into 1-st subdomain
+alpha_1 = ift.Field(p_1, val=1.)
+q_1 = ift.Field(p_1, val=1e-12)
+s_1 = 1.
+
+# initilize Problem class
+P = Problem(data, statistics='PLN')
+P.add(m_initial, R=R, Signal_attributes=[[tau_0, alpha_0, q_0, s_0, True],
+                                         [tau_1, alpha_1, q_1, s_1, True]])
+
+start_t = t_volume // 2
+end_t = t_volume // 2 * 3
+
+plt.imshow(P.maps[0].val.T, cmap='inferno', origin='lower', extent=(start_t, end_t, 0, e_volume))
+plt.title('Initial Signal Guess')
+plt.xlabel('Time')
+plt.ylabel('Energy Channels')
+
+plt.subplots_adjust(left=0.04, right=0.99, hspace=0.23, top=0.95, bottom=0.06)
+plt.show()
+
+data = P.data
+
+D4PO = Solver.D4PO_solver(P)
+D4PO(1)
+
+P_res = D4PO.results
+
+
+plt.imshow(P_res.maps[0].val.T, cmap='inferno', origin='lower', extent=(start_t, end_t, 0, e_volume))
+plt.title('Signal Reconstruction')
+plt.xlabel('Time')
+plt.ylabel('Energy Channels')
+
+plt.subplots_adjust(left=0.04, right=0.99, hspace=0.23, top=0.95, bottom=0.06)
+plt.show()

@@ -1,5 +1,10 @@
 import numpy as np
 import nifty4 as ift
+from d4po.Energy import PLNMapEnergy
+
+
+def mock_energy():
+    Energy = PLNMapEnergy()
 
 
 def mock_signal_energy_time(t_pix, t_volume, e_pix, e_volume, dead_times_data=False):
