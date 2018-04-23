@@ -3,6 +3,7 @@ import nifty4 as ift
 import scipy.sparse
 import scipy.sparse.linalg
 import constants as const
+import matplotlib.pyplot as plt
 
 
 def get_time_mask(data, domain, threshold=2):
@@ -121,7 +122,7 @@ def get_data(start_time, end_time, time_pix, seperate_instruments=False, return_
 #        -wanted_energy_bins: desired uniform energy bins, dead or alive
 
 
-def get_instrument_factors():
+def get_instrument_factors(length=1):
     # create a response from all data available
     data = np.loadtxt(const.data_path, usecols=[1, 2]).transpose()
     # as for instruments 2 and 3 no photons are registered in the first two bins,
@@ -130,7 +131,25 @@ def get_instrument_factors():
                     np.insert(np.histogram(data[1, data[0] == 2], bins=254)[
                         0].astype(float), 0, [1e-3, 1e-3]),
                     np.insert(np.histogram(data[1, data[0] == 3], bins=254)[0].astype(float), 0, [1e-3, 1e-3])])
+    if length == 1:
+        x = np.zeros((1,))
+    else:
+        x = np.linspace(-20, 20, length)
+
+    x = kernel(x, 0.01)
+    padd = np.zeros((out.shape[0], out.shape[1] + length))
+    padd[:, length // 2:-length//2] = out
+    for i in range(out.shape[1] - length):
+        out[:, i] = np.sum(padd[:, i:i + length] * x[np.newaxis, :], axis=1) / length
+
     return out
+
+
+def kernel(x, sigma):
+    tmp = x*x
+    tmp *= -2.*np.pi*np.pi*sigma*sigma
+    np.exp(tmp, out=tmp)
+    return tmp
 
 
 def scale_and_normalize(x, instrument_factors):
@@ -366,3 +385,29 @@ def get_dicts(return_energies=False, return_channel_fractions=False):
         return energy_dicts, energies
     else:
         return energy_dicts
+
+
+if __name__ == "__main__":
+    factors = get_instrument_factors(length=3)
+    x = np.linspace(1, 256, num=256)
+
+    plt.subplot(221)
+    plt.bar(x, height=factors[0], width=1)
+    plt.title('Factors PCU0')
+    plt.xlabel('Photon Count')
+    plt.ylabel('Energy Channels]')
+
+    plt.subplot(222)
+    plt.bar(x, height=factors[1], width=1)
+    plt.title('Factors PCU2')
+    plt.xlabel('Photon Count')
+    plt.ylabel('Energy Channels]')
+
+    plt.subplot(223)
+    plt.bar(x, height=factors[2], width=1)
+    plt.title('Factors PCU3')
+    plt.xlabel('Photon Count')
+    plt.ylabel('Energy Channels]')
+
+    plt.subplots_adjust(left=0.04, right=0.99, hspace=0.23, top=0.95, bottom=0.06)
+    plt.show()

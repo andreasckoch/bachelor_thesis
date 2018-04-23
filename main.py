@@ -6,23 +6,21 @@ import Solver
 import matplotlib.pyplot as plt
 
 from d4po.problem import Problem
-from d4po import HamiltonianNormController
-from d4po.Energy import PLNMapEnergy
 
 start_time = 845
 end_time = 1200
-t_pix = 2**11
-t_volume = end_time - start_time
-e_pix = 512
+t_pix = 2 * 2**12
+t_volume = 2 * (end_time - start_time)
+e_pix = 2 * 127
 e_volume = 2 * 127
 
 # time space
-x_0 = ift.RGSpace(2 * t_pix, distances=t_volume / t_pix)
+x_0 = ift.RGSpace(t_pix, distances=t_volume / t_pix)
 k_0 = x_0.get_default_codomain()
 p_0 = ift.PowerSpace(harmonic_partner=k_0)
 
 # energy space
-x_1 = ift.RGSpace(2 * e_pix, distances=e_volume / e_pix)
+x_1 = ift.RGSpace(e_pix, distances=e_volume / e_pix)
 k_1 = x_1.get_default_codomain()
 p_1 = ift.PowerSpace(harmonic_partner=k_1)
 
@@ -60,7 +58,7 @@ signal_domain = ift.DomainTuple.make((x_0, x_1))
 R = QPO.Response(signal_domain)
 
 # Load Data ###
-data = QPOutils.get_data(start_time, end_time, t_pix, seperate_instruments=True)
+data = QPOutils.get_data(start_time, end_time, t_pix//2, seperate_instruments=True)
 time_mask = QPOutils.get_time_mask(data, R.time_padded_domain, threshold=2)
 data = ift.Field(R.target, val=data)  # np.clip(data, 1e-10, data.max()))
 
@@ -84,19 +82,21 @@ s_1 = 1.
 P = Problem(data, statistics='PLN')
 P.add(m_initial, R=R, Signal_attributes=[[tau_0, alpha_0, q_0, s_0, True],
                                          [tau_1, alpha_1, q_1, s_1, True]])
+print(P.maps[0].min())
 
-start_t = 2 * t_volume // 4
-end_t = 2 * t_volume // 4 * 3
+start_t = t_volume // 4
+end_t = t_volume // 4 * 3
 
 data = P.data
 
 D4PO = Solver.D4PO_solver(P)
-D4PO(1)
+D4PO(6)
 
 P_res = D4PO.results
 
-
-plt.imshow(P_res.maps[0].val[t_pix//4:t_pix//4*3, :e_pix//2].T, cmap='inferno', origin='lower', extent=(start_t, end_t, 0, e_volume // 2))
+print(P_res.maps[0].min())
+plt.imshow(P_res.maps[0].val[t_pix//4:t_pix//4*3, :e_pix//2].T,
+           cmap='inferno', vmin=0., origin='lower', extent=(start_t, end_t, 0, e_volume // 2))
 plt.title('Signal Reconstruction')
 plt.xlabel('Time')
 plt.ylabel('Energy [keV]')
