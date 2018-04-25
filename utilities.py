@@ -5,6 +5,9 @@ import scipy.sparse.linalg
 import constants as const
 import matplotlib.pyplot as plt
 
+data_path = const.data_path
+energy_path = const.energy_path
+
 
 def get_time_mask(data, domain, threshold=2):
 
@@ -88,7 +91,7 @@ def get_data(start_time, end_time, time_pix, seperate_instruments=False, return_
     """
 
     # load data and select time intervall
-    data = np.loadtxt(const.data_path).transpose()
+    data = np.loadtxt(data_path).transpose()
     data[0] = data[0] - data[0].min()
     von = np.argmax(data[0] > float(start_time))
     bis = np.argmax(data[0] > float(end_time))
@@ -96,7 +99,7 @@ def get_data(start_time, end_time, time_pix, seperate_instruments=False, return_
 
     # convert channels to energy in keV
     if not seperate_instruments:
-        energy = np.loadtxt(const.energy_path, usecols=[6, 7], skiprows=25).transpose()
+        energy = np.loadtxt(energy_path, usecols=[6, 7], skiprows=25).transpose()
         instrument = np.array(data[1], dtype=int)
         instrument[instrument > 0] = 1  # distinguish between PCU0:=0 and PCU1234:=1 energy
         channel = np.array(data[2], dtype=int)
@@ -124,7 +127,7 @@ def get_data(start_time, end_time, time_pix, seperate_instruments=False, return_
 
 def get_instrument_factors(length=1):
     # create a response from all data available
-    data = np.loadtxt(const.data_path, usecols=[1, 2]).transpose()
+    data = np.loadtxt(data_path, usecols=[1, 2]).transpose()
     # as for instruments 2 and 3 no photons are registered in the first two bins,
     # histogram does not those bins up --> insert 0s
     out = np.array([np.histogram(data[1, data[0] == 0], bins=256)[0].astype(float),
@@ -343,7 +346,7 @@ def get_dicts(return_energies=False, return_channel_fractions=False):
 
     """
 
-    energies = np.loadtxt(const.energy_path, usecols=[6, 7], skiprows=25).transpose()
+    energies = np.loadtxt(energy_path, usecols=[6, 7], skiprows=25).transpose()
     unique, counts = np.unique(energies[0], return_counts=True)
     energies_PCU0 = dict(zip(unique, counts))
     for e in unique:
@@ -356,7 +359,7 @@ def get_dicts(return_energies=False, return_channel_fractions=False):
     energy_dicts = [energies_PCU0, energies_PCU23]
 
     if return_channel_fractions:
-        data = np.loadtxt(const.data_path, usecols=[1, 2]).transpose()
+        data = np.loadtxt(data_path, usecols=[1, 2]).transpose()
         d = []
 
         for i in [0, 2, 3]:

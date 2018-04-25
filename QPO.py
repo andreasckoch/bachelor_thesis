@@ -15,7 +15,7 @@ class Response(ift.LinearOperator):
         super(Response, self).__init__()
 
         self._domain = ift.DomainTuple.make(domain)
-        self._time_new_domain = ift.RGSpace(domain.shape[0] // 2, distances=domain[0].distances[0])
+        self._time_new_domain = ift.RGSpace(domain[0].shape[0] // 2, distances=domain[0].distances[0])
         self._x_new_domain = ift.DomainTuple.make((self._time_new_domain, domain[1]))
         self._target = ift.DomainTuple.make(ift.UnstructuredDomain((3, self._x_new_domain[0].shape[0], 256)))
 

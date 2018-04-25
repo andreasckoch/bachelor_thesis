@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 import utilities as QPOutils
 import QPO
-import solver
+import Solver
 
 from d4po.problem import Problem
 
