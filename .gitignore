@@ -1,3 +1,10 @@
 __pycache__
 *.png
 trash
+data
+test.py
+plot_data.py
+results
+*.p
+mock_data_s_x.py
+mock_signals.py

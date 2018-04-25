@@ -8,8 +8,8 @@ import matplotlib.pyplot as plt
 from d4po.problem import Problem
 
 start_time = 845
-end_time = 1200
-t_pix = 2 * 2**12
+end_time = 1245
+t_pix = 2 * 2**10
 t_volume = 2 * (end_time - start_time)
 e_pix = 2 * 127
 e_volume = 2 * 127
