@@ -78,7 +78,7 @@ def make_problem():
 
     ### Load Data ####################################
     data = QPOutils.get_data(start_time, end_time, t_pix, seperate_instruments=True)
-    time_mask = QPOutils.get_time_mask(data, R.tmp_domain, threshold=2**(int(np.log2(t_pix))-12))
+    time_mask = QPOutils.get_time_mask(data, R.time_padded_domain, threshold=2**(int(np.log2(t_pix))-12))
     R.set_mask(time_mask)
     data = ift.Field(R.target, val=np.clip(data, 1e-10, data.max()))
 
@@ -111,9 +111,10 @@ logfile.write('Built Response in %dh%02dmin%02ds.' % (h, m, s))
 sys.stdout.flush()
 
 # check if Response returns 0
-signal_domain = P.domain
-d = P.ResponseOp(ift.Field.ones(signal_domain))
-print(np.argmin(d))
+R = P.ResponseOp[0]
+d = R(ift.Field.ones(R.domain))
+idx = np.argmin(d)
+print(np.min(d), idx, np.unravel_index(idx, (3, t_pix, 256)))
 
 """
 tack = time.time()

@@ -90,7 +90,7 @@ end_t = t_volume // 4 * 3
 data = P.data
 
 D4PO = Solver.D4PO_solver(P)
-D4PO(6)
+D4PO(3)
 
 P_res = D4PO.results
 
