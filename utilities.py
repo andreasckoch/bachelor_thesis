@@ -3,17 +3,11 @@ import nifty4 as ift
 import scipy.sparse
 import scipy.sparse.linalg
 import constants as const
-import constants_prelude as const_prelude
 import matplotlib.pyplot as plt
 
 
-def set_paths(prelude=False):
-    if prelude is True:
-        data_path = const_prelude.data_path
-        energy_path = const_prelude.energy_path
-    else:
-        data_path = const.data_path
-        energy_path = const.energy_path
+data_path = const.data_path
+energy_path = const.energy_path
 
 
 def get_time_mask(data, domain, threshold=2):

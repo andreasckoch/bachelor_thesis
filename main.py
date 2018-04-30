@@ -7,8 +7,6 @@ import matplotlib.pyplot as plt
 
 from d4po.problem import Problem
 
-QPOutils.set_paths()
-
 start_time = 845
 end_time = 1245
 t_pix = 2 * 2**10
