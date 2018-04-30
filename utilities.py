@@ -3,10 +3,17 @@ import nifty4 as ift
 import scipy.sparse
 import scipy.sparse.linalg
 import constants as const
+import constants_prelude as const_prelude
 import matplotlib.pyplot as plt
 
-data_path = const.data_path
-energy_path = const.energy_path
+
+def set_paths(prelude=False):
+    if prelude is True:
+        data_path = const_prelude.data_path
+        energy_path = const_prelude.energy_path
+    else:
+        data_path = const.data_path
+        energy_path = const.energy_path
 
 
 def get_time_mask(data, domain, threshold=2):
@@ -140,6 +147,7 @@ def get_instrument_factors(length=1):
         x = np.linspace(-20, 20, length)
 
     x = kernel(x, 0.01)
+
     padd = np.zeros((out.shape[0], out.shape[1] + length))
     padd[:, length // 2:-length//2] = out
     for i in range(out.shape[1] - length):
@@ -392,7 +400,7 @@ def get_dicts(return_energies=False, return_channel_fractions=False):
 
 
 if __name__ == "__main__":
-    factors = get_instrument_factors(length=3)
+    factors = get_instrument_factors(length=5)
     x = np.linspace(1, 256, num=256)
 
     plt.subplot(221)

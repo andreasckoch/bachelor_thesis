@@ -110,13 +110,7 @@ print('Built Response in %dh%02dmin%02ds.' % (h, m, s))
 logfile.write('Built Response in %dh%02dmin%02ds.' % (h, m, s))
 sys.stdout.flush()
 
-# check if Response returns 0
-R = P.ResponseOp[0]
-d = R(ift.Field.ones(R.domain))
-idx = np.argmin(d)
-print(np.min(d), idx, np.unravel_index(idx, (3, t_pix, 256)))
 
-"""
 tack = time.time()
 D4PO = solver.D4PO_solver(P, verbose=True)
 D4PO(iterations)
@@ -137,9 +131,8 @@ P_res = D4PO.results
 
 # auf prelude nicht plotten, sondern results speichern:
 try:
-    P_res.dump('/afs/mpa/home/ankoch/results/r_{}.p'.format(timestamp))
+    P_res.dump('/afs/mpa/temp/ankoch/results/r_{}.p'.format(timestamp))
 except Exception as e:
     print(e, 'not able to save to afs, saving to scratch instead')
     P_res.dump('r_{}.p'.format(timestamp))
 # nachher wieder laden mit Problem.load(), dann plotten
-"""

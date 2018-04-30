@@ -3,8 +3,10 @@ from __future__ import print_function
 
 import nifty4 as ift
 import numpy as np
-#import QPO as QPOutils
-#import mock_signals
+import time
+import sys
+import plot_data as pd
+
 
 from d4po.Energy import PLNMapEnergy
 #from d4po.problem import Problem
@@ -16,6 +18,8 @@ class D4PO_solver(object):
     def __init__(self, Problem):
 
         self._P = Problem
+        self._verbose = verbose
+        self._timestamp = timestamp
 
         self._update_para(0)
 
@@ -56,11 +60,23 @@ class D4PO_solver(object):
 
     def __call__(self, iterations):
 
+        tick = time.time()
+
         for jj in range(iterations):
 
-            print('optimizing diffuse map')
+            sys.stdout.flush()
+
+            print('Solver Iteration #%d' % jj)
             s = self._map_s_minimizer_NT(self._E_map_s)[0].position
             self._P.maps = 0, ift.Field(s.domain, val=s)
             self._make_energy()
 
             self._update_para(jj + 1)
+
+            pd.plot_iteration(self._P, timestamp=self._timestamp, jj=jj)
+
+            if self._verbose:
+                m, s = divmod(time.time()-tick, 60)
+                h, m = divmod(m, 60)
+                print('Solver Iteration #%d took: %dh%02dmin%02ds\n' % (jj, h, m, s))
+                tick = time.time()

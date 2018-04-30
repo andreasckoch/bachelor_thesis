@@ -8,4 +8,3 @@ results
 *.p
 mock_data_s_x.py
 mock_signals.py
-constants.py
