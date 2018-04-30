@@ -11,6 +11,7 @@ import Solver
 
 from d4po.problem import Problem
 
+QPOutils.set_paths(True)
 timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 logpath = 'log_{}.txt'.format(timestamp)
 print('Logging to logpath')
