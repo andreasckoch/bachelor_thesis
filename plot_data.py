@@ -12,7 +12,7 @@ import datetime
 start_time = 845
 end_time = 1245
 t_volume = end_time - start_time  # volume in data
-e_volume = 127  # volume in data
+e_volume = 117.86  # volume in data
 
 
 def get_filenames(file='fields'):
@@ -84,6 +84,7 @@ def plot_iteration(P, timestamp, jj):
     grid = plt.GridSpec(2, 2, wspace=0.2, hspace=0.05, left=0.1, right=0.96, top=0.98, bottom=0.05)
     plt.subplot(grid[0, :])
     Pshape = P.maps[0].val.shape
+    e_volume = P.domain[1].distances[0] * P.domain[1].shape[0]//2
     plt.imshow(P.maps[0].val[Pshape[0]//4:Pshape[0]//4*3, 0:Pshape[1]//2].T,
                cmap='inferno', vmin=-8, origin='lower', extent=[start_time, end_time, 0, e_volume])
     plt.title('Reconstructed Signal for iteration step', jj)

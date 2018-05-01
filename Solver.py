@@ -15,7 +15,7 @@ from d4po import HamiltonianNormController
 
 
 class D4PO_solver(object):
-    def __init__(self, Problem):
+    def __init__(self, Problem, timestamp=None, verbose=False):
 
         self._P = Problem
         self._verbose = verbose
@@ -73,7 +73,7 @@ class D4PO_solver(object):
 
             self._update_para(jj + 1)
 
-            pd.plot_iteration(self._P, timestamp=self._timestamp, jj=jj)
+            #pd.plot_iteration(self._P, timestamp=self._timestamp, jj=jj)
 
             if self._verbose:
                 m, s = divmod(time.time()-tick, 60)

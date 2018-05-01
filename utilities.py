@@ -201,14 +201,15 @@ def get_mean_energy(energy_bins):
     return energy_bins_mean
 
 
-def build_energy_response(signal_domain):
+def build_energy_response(signal_domain, max_e):
 
     # Load constants
     dE = signal_domain[1].distances[0]
     t_pix = signal_domain.shape[0]//2
-    e_pix = signal_domain.shape[1]
+    e_pix = signal_domain.shape[1]//2
     energy_dicts, energies = get_dicts(True, True)
     ins_p = const.ins_p
+    break_loop = False
 
     # f: fractions mit denen Eintrag aus Signal multipliziert wird
     # s: 1-D Indizes der Signalelemente
@@ -261,8 +262,13 @@ def build_energy_response(signal_domain):
             """
 
             # finde signal bin index, der von e geschnitten wird
-            s_j = int(e//dE)
-            p1 = ((s_j+1)*dE-e)/dE  # neuer verbleibender Bruchteil des signal bins s_j
+            if e >= max_e:
+                s_j = int(max_e//dE)
+                p1 = ((s_j+1)*dE-max_e)/dE  # neuer verbleibender Bruchteil des signal bins s_j
+                break_loop = True
+            else:
+                s_j = int(e//dE)
+                p1 = ((s_j+1)*dE-e)/dE  # neuer verbleibender Bruchteil des signal bins s_j
 
             if s_i == s_j:
                 for frac_i, channel in enumerate(energy_dicts[ins][e][0]):
@@ -304,6 +310,8 @@ def build_energy_response(signal_domain):
             # setze Werte für nächsten Energie bin
             p0 = p1
             s_i = s_j
+            if break_loop:
+                break
 
     energy_response = scipy.sparse.coo_matrix((f, (d, s)), shape=(3*t_pix*256, t_pix*e_pix)).tocsc()
     return scipy.sparse.linalg.aslinearoperator(energy_response)

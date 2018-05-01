@@ -18,16 +18,19 @@ logfile = open(logpath, 'w')
 
 
 iterations = 10
-t_pix = 2**18  # pixels in time after padding (signal has 2*t_pix pixels)
+t_pix = 2**10  # pixels in time after padding (signal has 2*t_pix pixels)
 e_pix = 256  # pixels in energy after padding (signal has 2*e_pix pixels)
 start_time = 845
 end_time = 1245
 t_volume = end_time - start_time  # volume in data
-e_volume = 127  # volume in data
+e_volume = 110  # volume in data
+smoothing_time = 1.0e-8
+smoothing_energy = 1.0e-5
 
-intial_log_message = "Analyzing SGR1806 with:\niterations = {}\nt_pix = 2**{}\ne_pix = {}\nstart_time = {}\nend_time = {}\nt_volume = {}\ne_volume = {}\n"
+
+intial_log_message = "Analyzing SGR1806 with:\niterations = {}\nt_pix = 2**{}\ne_pix = {}\nstart_time = {}\nend_time = {}\nt_volume = {}\ne_volume = {}\nsmoothing_time = {:.0e}\nsmoothing_energy = {:.0e}\n"
 intial_log_message = intial_log_message.format(iterations, int(np.log2(t_pix)),
-                                               e_pix, start_time, end_time, t_volume, e_volume)
+                                               e_pix, start_time, end_time, t_volume, e_volume, smoothing_time, smoothing_energy)
 print(intial_log_message)
 logfile.write(intial_log_message)
 
@@ -78,7 +81,7 @@ def make_problem():
 
     ### Load Data ####################################
     data = QPOutils.get_data(start_time, end_time, t_pix, seperate_instruments=True)
-    time_mask = QPOutils.get_time_mask(data, R.time_padded_domain, threshold=2**(int(np.log2(t_pix))-12))
+    time_mask = QPOutils.get_time_mask(data, R.time_padded_domain, threshold=int(2**(int(np.log2(t_pix))-12)))
     R.set_mask(time_mask)
     data = ift.Field(R.target, val=np.clip(data, 1e-10, data.max()))
 
@@ -88,12 +91,12 @@ def make_problem():
     # setting hierarchical parameters for time subdomain
     alpha_0 = ift.Field(tau_0.domain, val=1.)
     q_0 = ift.Field(tau_0.domain, val=1e-12)
-    s_0 = 1e-4
+    s_0 = smoothing_time
 
     # setting hierarchical parameters for energy subdomain
     alpha_1 = ift.Field(tau_1.domain, val=1.)
     q_1 = ift.Field(tau_1.domain, val=1e-12)
-    s_1 = 1.
+    s_1 = smoothing_energy
 
     P = Problem(data, statistics='PLN')
     P.add(m_initial, R=R, Signal_attributes=[[tau_0, alpha_0, q_0, s_0, True],
@@ -112,7 +115,7 @@ sys.stdout.flush()
 
 
 tack = time.time()
-D4PO = solver.D4PO_solver(P, verbose=True)
+D4PO = Solver.D4PO_solver(P, timestamp=timestamp, verbose=True)
 D4PO(iterations)
 m, s = divmod(time.time()-tack, 60)
 h, m = divmod(m, 60)

@@ -16,10 +16,11 @@ class Response(ift.LinearOperator):
 
         self._domain = ift.DomainTuple.make(domain)
         self._time_new_domain = ift.RGSpace(domain[0].shape[0] // 2, distances=domain[0].distances[0])
-        self._x_new_domain = ift.DomainTuple.make((self._time_new_domain, domain[1]))
+        self._energy_new_domain = ift.RGSpace(domain[1].shape[0] // 2, distances=domain[1].distances[0])
+        self._x_new_domain = ift.DomainTuple.make((self._time_new_domain, self._energy_new_domain))
         self._target = ift.DomainTuple.make(ift.UnstructuredDomain((3, self._x_new_domain[0].shape[0], 256)))
 
-        self._energy_response = QPOutils.build_energy_response(self._domain)
+        self._energy_response = QPOutils.build_energy_response(self._domain, domain[1].distances[0] * domain[1].shape[0] // 2)
         self._energy_response_adjoint = self._energy_response.adjoint()
         self._energy_dicts, self._energies = QPOutils.get_dicts(True, True)
         self._instrument_factors = QPOutils.get_instrument_factors(length=3)
@@ -86,7 +87,7 @@ class Response(ift.LinearOperator):
         """
         if mode == self.TIMES:
             # Zero padding (teile entfernen) und time mask
-            x = ift.Field(self._x_new_domain, val=x.val[x.shape[0]//4: x.shape[0]//4 * 3, :])
+            x = ift.Field(self._x_new_domain, val=x.val[x.shape[0]//4: x.shape[0]//4 * 3, :x.shape[1]//2])
             x = self._M.times(x)
 
             # Energy Response und (normierte) instrument factors
@@ -107,7 +108,7 @@ class Response(ift.LinearOperator):
 
             # Zero padding
             padd = np.zeros(self._domain.shape)
-            padd[padd.shape[0]//4: padd.shape[0]//4 * 3, :] = x.val
+            padd[padd.shape[0]//4: padd.shape[0]//4 * 3, :padd.shape[1]//2] = x.val
 
             return ift.Field(self._domain, val=padd)
 
