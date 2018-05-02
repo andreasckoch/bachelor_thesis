@@ -12,7 +12,7 @@ import datetime
 start_time = 845
 end_time = 1245
 t_volume = end_time - start_time  # volume in data
-e_volume = 117.86  # volume in data
+# volume in data is missing in case you need it defined in this file
 
 
 def get_filenames(file='fields'):
