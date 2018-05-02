@@ -13,20 +13,22 @@ from d4po.problem import Problem
 
 timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 logpath = 'trash/log_{}.txt'.format(timestamp)
-print('Logging to logpath' + logpath)
+print('Logging to logpath ' + logpath)
 logfile = open(logpath, 'w')
 plotpath = 'trash'
 
 
 iterations = 5
-t_pix = 2**8  # pixels in time after padding (signal has 2*t_pix pixels)
+t_pix = 2**10  # pixels in time after padding (signal has 2*t_pix pixels)
 e_pix = 256  # pixels in energy after padding (signal has 2*e_pix pixels)
 start_time = 845
 end_time = 1245
 t_volume = end_time - start_time  # volume in data
-e_volume = 110  # volume in data
-smoothing_time = 1.0e-8
-smoothing_energy = 1.0e-5
+e_volume = 114.6  # volume in data
+smoothing_time = 1.0e-6
+smoothing_energy = 1.0e-3
+smoothness_sigma_time = 1.
+smoothness_sigma_energy = 1.
 
 
 intial_log_message = "Analyzing SGR1806 with:\niterations = {}\nt_pix = 2**{}\ne_pix = {}\nstart_time = {}\nend_time = {}\nt_volume = {}\ne_volume = {}\nsmoothing_time = {:.0e}\nsmoothing_energy = {:.0e}\n"
@@ -82,12 +84,12 @@ def make_problem():
 
     ### Load Data ####################################
     data = QPOutils.get_data(start_time, end_time, t_pix, seperate_instruments=True)
-    time_mask = QPOutils.get_time_mask(data, R.time_padded_domain, threshold=int(2**(int(np.log2(t_pix))-12)))
+    time_mask = QPOutils.get_time_mask(data, R.time_padded_domain)
     R.set_mask(time_mask)
     data = ift.Field(R.target, val=np.clip(data, 1e-10, data.max()))
 
     # initial guesses
-    m_initial = ift.Field(R.domain, val=0.5)
+    m_initial = ift.Field(R.domain, val=1.)
 
     # setting hierarchical parameters for time subdomain
     alpha_0 = ift.Field(tau_0.domain, val=1.)
@@ -102,6 +104,30 @@ def make_problem():
     P = Problem(data, statistics='PLN')
     P.add(m_initial, R=R, Signal_attributes=[[tau_0, alpha_0, q_0, s_0, True],
                                              [tau_1, alpha_1, q_1, s_1, True]])
+
+    # draw better starting taus:
+    s_dirty = P.ResponseOp[0].adjoint_times(P.data)
+
+    # s smoothen mit FFTSmotthness mit sigma so wählen, dass oszilitationen noch da sind, aber rauschen raus gesmooth ist
+    # sigma muss an t_pix angepasst werden.
+
+    S0 = ift.FFTSmoothingOperator(s_dirty.domain, sigma=smoothness_sigma_time, space=0)  # do not confuse smoothing parameters!
+    S1 = ift.FFTSmoothingOperator(s_dirty.domain, sigma=smoothness_sigma_energy, space=1)
+
+    s = S1.times(S0.times(s_dirty))
+
+    fft = P.FFTOp[0]
+    sk = fft.times(s)
+    p0 = ift.power_analyze(sk.integrate(spaces=1))
+    p1 = ift.power_analyze(sk.integrate(spaces=0))
+
+    tau_0 = ift.log(p0)
+    tau_1 = ift.log(p1)
+
+    # set improved taus
+    P.tau = 0, [tau_0, tau_1]
+    P.maps = 0, s
+
     return P
 
 
@@ -136,3 +162,7 @@ P_res = D4PO.results
 # results speichern:
 try:
     P_res.dump('results/r_{}.p'.format(timestamp))
+except Exception as e:
+    print(e, 'not able to save to trash, instead saving locally')
+    P_res.dump('r_{}.p'.format(timestamp))
+# nachher wieder laden mit Problem.load(), dann plotten

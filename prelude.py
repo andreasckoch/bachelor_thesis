@@ -25,8 +25,10 @@ start_time = 845
 end_time = 1245
 t_volume = end_time - start_time  # volume in data
 e_volume = 114.6  # volume in data
-smoothing_time = 1.0e-8
-smoothing_energy = 1.0e-5
+smoothing_time = 1.0e-6
+smoothing_energy = 1.0e-3
+smoothness_sigma_time = 1.
+smoothness_sigma_energy = 1.
 
 
 intial_log_message = "Analyzing SGR1806 with:\niterations = {}\nt_pix = 2**{}\ne_pix = {}\nstart_time = {}\nend_time = {}\nt_volume = {}\ne_volume = {}\nsmoothing_time = {:.0e}\nsmoothing_energy = {:.0e}\n"
@@ -102,6 +104,30 @@ def make_problem():
     P = Problem(data, statistics='PLN')
     P.add(m_initial, R=R, Signal_attributes=[[tau_0, alpha_0, q_0, s_0, True],
                                              [tau_1, alpha_1, q_1, s_1, True]])
+
+    # draw better starting taus:
+    s_dirty = P.ResponseOp[0].adjoint_times(P.data)
+
+    # s smoothen mit FFTSmotthness mit sigma so wählen, dass oszilitationen noch da sind, aber rauschen raus gesmooth ist
+    # sigma muss an t_pix angepasst werden.
+
+    S0 = ift.FFTSmoothingOperator(s_dirty.domain, sigma=smoothness_sigma_time, space=0)
+    S1 = ift.FFTSmoothingOperator(s_dirty.domain, sigma=smoothness_sigma_energy, space=1)
+
+    s = S1.times(S0.times(s_dirty))
+
+    fft = P.FFTOp[0]
+    sk = fft.times(s)
+    p0 = ift.power_analyze(sk.integrate(spaces=1))
+    p1 = ift.power_analyze(sk.integrate(spaces=0))
+
+    tau_0 = ift.log(p0)
+    tau_1 = ift.log(p1)
+
+    # set improved taus
+    P.tau = 0, [tau_0, tau_1]
+    P.maps = 0, s
+
     return P
 
 
