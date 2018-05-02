@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 import utilities as QPOutils
 import QPO
-import Solver
+import solver
 
 from d4po.problem import Problem
 
@@ -15,6 +15,7 @@ timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 logpath = 'log_{}.txt'.format(timestamp)
 print('Logging to logpath')
 logfile = open(logpath, 'w')
+plotpath = '/afs/mpa/temp/ankoch/plots'
 
 
 iterations = 10
@@ -23,7 +24,7 @@ e_pix = 256  # pixels in energy after padding (signal has 2*e_pix pixels)
 start_time = 845
 end_time = 1245
 t_volume = end_time - start_time  # volume in data
-e_volume = 110  # volume in data
+e_volume = 114.6  # volume in data
 smoothing_time = 1.0e-8
 smoothing_energy = 1.0e-5
 
@@ -115,7 +116,7 @@ sys.stdout.flush()
 
 
 tack = time.time()
-D4PO = Solver.D4PO_solver(P, timestamp=timestamp, verbose=True)
+D4PO = solver.D4PO_solver(P, plotpath, timestamp=timestamp)
 D4PO(iterations)
 m, s = divmod(time.time()-tack, 60)
 h, m = divmod(m, 60)

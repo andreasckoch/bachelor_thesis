@@ -126,7 +126,7 @@ def get_data(start_time, end_time, time_pix, seperate_instruments=False, return_
 #        -wanted_energy_bins: desired uniform energy bins, dead or alive
 
 
-def get_instrument_factors(length=1):
+def get_instrument_factors(length=5):
     # create a response from all data available
     data = np.loadtxt(data_path, usecols=[1, 2]).transpose()
     # as for instruments 2 and 3 no photons are registered in the first two bins,
@@ -201,7 +201,7 @@ def get_mean_energy(energy_bins):
     return energy_bins_mean
 
 
-def build_energy_response(signal_domain, max_e):
+def build_energy_response(signal_domain, max_e, disgard_starting_channels=True):
 
     # Load constants
     dE = signal_domain[1].distances[0]
@@ -272,6 +272,10 @@ def build_energy_response(signal_domain, max_e):
 
             if s_i == s_j:
                 for frac_i, channel in enumerate(energy_dicts[ins][e][0]):
+                    # disgard first three channels of each instrument
+                    if disgard_starting_channels is True and e == energies[ins][0] and channel in [0, 1, 2]:
+                        continue
+
                     f_tmp = [ins_p[ins]*(p0-p1)*energy_dicts[ins][e][1][frac_i]]*t_pix
                     s_tmp = np.ravel_multi_index([range(t_pix), [s_i, ]], (t_pix, e_pix))
                     d_tmp = np.ravel_multi_index([[ins, ], range(t_pix), [channel, ]], (3, t_pix, 256))
@@ -280,6 +284,9 @@ def build_energy_response(signal_domain, max_e):
                     d.extend(d_tmp)
             else:
                 for frac_i, channel in enumerate(energy_dicts[ins][e][0]):
+                    # disgard first three channels of each instrument
+                    if disgard_starting_channels is True and e == energies[ins][0] and channel in [0, 1, 2]:
+                        continue
 
                     # s_i
                     f_tmp = [ins_p[ins]*p0*energy_dicts[ins][e][1][frac_i]]*t_pix
@@ -402,7 +409,7 @@ def get_dicts(return_energies=False, return_channel_fractions=False):
 
 
 if __name__ == "__main__":
-    factors = get_instrument_factors(length=5)
+    factors = get_instrument_factors(length=5)  # 5 ist gut
     x = np.linspace(1, 256, num=256)
 
     plt.subplot(221)

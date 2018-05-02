@@ -7,14 +7,15 @@ import matplotlib.pyplot as plt
 
 import utilities as QPOutils
 import QPO
-import Solver
+import solver
 
 from d4po.problem import Problem
 
 timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-logpath = 'log_{}.txt'.format(timestamp)
-print('Logging to logpath')
+logpath = 'trash/log_{}.txt'.format(timestamp)
+print('Logging to logpath' + logpath)
 logfile = open(logpath, 'w')
+plotpath = 'trash'
 
 
 iterations = 5
@@ -115,7 +116,7 @@ sys.stdout.flush()
 
 
 tack = time.time()
-D4PO = Solver.D4PO_solver(P, timestamp=timestamp, verbose=True)
+D4PO = solver.D4PO_map_solver(P, plotpath, timestamp=timestamp)
 D4PO(iterations)
 m, s = divmod(time.time()-tack, 60)
 h, m = divmod(m, 60)
@@ -132,10 +133,6 @@ sys.stdout.flush()
 P_res = D4PO.results
 
 
-# auf prelude nicht plotten, sondern results speichern:
+# results speichern:
 try:
-    P_res.dump('~/bachelor/QPO/results/r_{}.p'.format(timestamp))
-except Exception as e:
-    print(e, 'not able to save to afs, saving to scratch instead')
-    P_res.dump('r_{}.p'.format(timestamp))
-# nachher wieder laden mit Problem.load(), dann plotten
+    P_res.dump('results/r_{}.p'.format(timestamp))

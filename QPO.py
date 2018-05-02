@@ -23,7 +23,7 @@ class Response(ift.LinearOperator):
         self._energy_response = QPOutils.build_energy_response(self._domain, domain[1].distances[0] * domain[1].shape[0] // 2)
         self._energy_response_adjoint = self._energy_response.adjoint()
         self._energy_dicts, self._energies = QPOutils.get_dicts(True, True)
-        self._instrument_factors = QPOutils.get_instrument_factors(length=3)
+        self._instrument_factors = QPOutils.get_instrument_factors()
 
         if mask is None:
             self._M = ift.DiagonalOperator(ift.Field.ones(self._x_new_domain))
