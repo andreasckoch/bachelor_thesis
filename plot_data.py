@@ -78,7 +78,7 @@ def load(filenames, index=0):
         print('No such file.')
 
 
-def plot_iteration(P, timestamp, jj, plotpath):
+def plot_iteration(P, timestamp, jj, plotpath, ii=0):
     plt.ioff()
     plt.figure(figsize=(8, 8))
     grid = plt.GridSpec(2, 2, wspace=0.2, hspace=0.05, left=0.1, right=0.96, top=0.98, bottom=0.05)
@@ -87,7 +87,7 @@ def plot_iteration(P, timestamp, jj, plotpath):
     e_volume = P.domain[0][1].distances[0] * P.domain[0][1].shape[0]//2
     plt.imshow(P.maps[0].val[Pshape[0]//4:Pshape[0]//4*3, 0:Pshape[1]//2].T,
                cmap='inferno', vmin=-8, origin='lower', extent=[start_time, end_time, 0, e_volume])
-    plt.title('Reconstructed Signal for iteration step %d' % jj)
+    plt.title('Reconstructed Signal for iteration step %d_%d' % (jj, ii))
     plt.xlabel('time in s')
     plt.ylabel('Energy in keV')
     plt.subplot(grid[1, 0])
@@ -98,8 +98,8 @@ def plot_iteration(P, timestamp, jj, plotpath):
     plt.title('Reconstructed Energy Power Spectrum')
 
     plt.tight_layout()
-    plt.savefig(plotpath + '/iteration_plot_{}_{}.png'.format(timestamp, jj), dpi=800)
-    print('Plotted intermediate plot to ' + plotpath + '/iteration_plot_{}_{}.png'.format(timestamp, jj))
+    plt.savefig(plotpath + '/iteration_plot_{}_{}_{}.png'.format(timestamp, jj, ii), dpi=800)
+    print('Plotted intermediate plot to ' + plotpath + '/iteration_plot_{}_{}_{}.png'.format(timestamp, jj, ii))
 
 
 if __name__ == "__main__":

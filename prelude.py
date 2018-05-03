@@ -18,8 +18,8 @@ logfile = open(logpath, 'w')
 plotpath = '/afs/mpa/temp/ankoch/plots'
 
 
-iterations = 10
-t_pix = 2**10  # pixels in time after padding (signal has 2*t_pix pixels)
+iterations = 5
+t_pix = 2**8  # pixels in time after padding (signal has 2*t_pix pixels)
 e_pix = 256  # pixels in energy after padding (signal has 2*e_pix pixels)
 start_time = 845
 end_time = 1245
@@ -89,7 +89,7 @@ def make_problem():
     data = ift.Field(R.target, val=np.clip(data, 1e-10, data.max()))
 
     # initial guesses
-    m_initial = ift.Field(R.domain, val=0.5)
+    m_initial = ift.Field(R.domain, val=1.)
 
     # setting hierarchical parameters for time subdomain
     alpha_0 = ift.Field(tau_0.domain, val=1.)
@@ -104,7 +104,7 @@ def make_problem():
     P = Problem(data, statistics='PLN')
     P.add(m_initial, R=R, Signal_attributes=[[tau_0, alpha_0, q_0, s_0, True],
                                              [tau_1, alpha_1, q_1, s_1, True]])
-
+    """
     # draw better starting taus:
     s_dirty = P.ResponseOp[0].adjoint_times(P.data)
 
@@ -126,8 +126,8 @@ def make_problem():
 
     # set improved taus
     P.tau = 0, [tau_0, tau_1]
-    P.maps = 0, s
-
+    P.maps = 0, ift.Field(s.domain, val=np.clip(s.val, -5, 5))
+    """
     return P
 
 
@@ -142,7 +142,7 @@ sys.stdout.flush()
 
 
 tack = time.time()
-D4PO = solver.D4PO_solver(P, plotpath, timestamp=timestamp)
+D4PO = solver.D4PO_map_solver(P, plotpath, timestamp=timestamp)
 D4PO(iterations)
 m, s = divmod(time.time()-tack, 60)
 h, m = divmod(m, 60)

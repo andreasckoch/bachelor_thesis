@@ -27,8 +27,8 @@ t_volume = end_time - start_time  # volume in data
 e_volume = 114.6  # volume in data
 smoothing_time = 1.0e-6
 smoothing_energy = 1.0e-3
-smoothness_sigma_time = 1.
-smoothness_sigma_energy = 1.
+smoothness_sigma_time = 0.3
+smoothness_sigma_energy = 0.4
 
 
 intial_log_message = "Analyzing SGR1806 with:\niterations = {}\nt_pix = 2**{}\ne_pix = {}\nstart_time = {}\nend_time = {}\nt_volume = {}\ne_volume = {}\nsmoothing_time = {:.0e}\nsmoothing_energy = {:.0e}\n"
@@ -104,7 +104,7 @@ def make_problem():
     P = Problem(data, statistics='PLN')
     P.add(m_initial, R=R, Signal_attributes=[[tau_0, alpha_0, q_0, s_0, True],
                                              [tau_1, alpha_1, q_1, s_1, True]])
-
+    """
     # draw better starting taus:
     s_dirty = P.ResponseOp[0].adjoint_times(P.data)
 
@@ -127,7 +127,7 @@ def make_problem():
     # set improved taus
     P.tau = 0, [tau_0, tau_1]
     P.maps = 0, s
-
+    """
     return P
 
 
@@ -142,7 +142,7 @@ sys.stdout.flush()
 
 
 tack = time.time()
-D4PO = solver.D4PO_map_solver(P, plotpath, timestamp=timestamp)
+D4PO = solver.D4PO_solver(P, plotpath, timestamp=timestamp)
 D4PO(iterations)
 m, s = divmod(time.time()-tack, 60)
 h, m = divmod(m, 60)

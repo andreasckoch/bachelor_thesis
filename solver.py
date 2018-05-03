@@ -19,7 +19,7 @@ class D4PO_solver(object):
         self._P = Problem
 
         self._ncpu = int(ncpu)
-        self._nprobes = ncpu//2
+        self._nprobes = 2*ncpu
         self._timestamp = timestamp
         self._plotpath = plotpath
 
@@ -124,7 +124,7 @@ class D4PO_solver(object):
 
                     m, s = divmod(time.time()-tack, 60)
                     h, m = divmod(m, 60)
-                    print('Probing took: %dh%02dmin%02ds\n' % (jj, h, m, s))
+                    print('Probing took: %dh%02dmin%02ds\n' % (h, m, s))
 
                     if ii % 2 == 0:
                         print("optimizing tau-s in 1st-direction")
@@ -143,7 +143,7 @@ class D4PO_solver(object):
                     self._P.maps = 0, ift.Field(s.domain, val=np.clip(s.val, -s.max(), s.max()))
                     self._make_energy()
 
-                    pd.plot_iteration(self._P, timestamp=self._timestamp, jj=jj, ii=ii)
+                    pd.plot_iteration(self._P, timestamp=self._timestamp, jj=jj, plotpath=self._plotpath, ii=ii)
 
                     m, s = divmod(time.time()-tick, 60)
                     h, m = divmod(m, 60)
