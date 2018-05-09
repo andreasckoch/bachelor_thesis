@@ -142,7 +142,7 @@ sys.stdout.flush()
 
 
 tack = time.time()
-D4PO = solver.D4PO_map_solver(P, plotpath, timestamp=timestamp)
+D4PO = solver.D4PO_solver(P, plotpath, timestamp=timestamp)
 D4PO(iterations)
 m, s = divmod(time.time()-tack, 60)
 h, m = divmod(m, 60)

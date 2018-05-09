@@ -78,22 +78,54 @@ def load(filenames, index=0):
         print('No such file.')
 
 
-def plot_iteration(P, timestamp, jj, plotpath, ii=0):
+def plot_iteration(P, timestamp, jj, plotpath, ii=0, probes=None):
     plt.ioff()
     plt.figure(figsize=(8, 8))
-    grid = plt.GridSpec(2, 2, wspace=0.2, hspace=0.05, left=0.1, right=0.96, top=0.98, bottom=0.05)
+    if probes is None:
+        grid = plt.GridSpec(2, 2, wspace=0.2, hspace=0.05, left=0.1, right=0.96, top=0.98, bottom=0.05)
+    else:
+        grid = plt.GridSpec(3, 2, wspace=0.2, hspace=0.05, left=0.1, right=0.96, top=0.98, bottom=0.05)
+    """
+    # colorbar
+    cmap = plt.cm.get_cmap('viridis')
+
+    for i in np.linspace(0, 1, 11):
+        x = [-1, 0, 1]
+        y = [i, i, i]
+        rgba = cmap(i)
+        im = ax.plot(x, y, color=rgba)
+
+    sm = plt.cm.ScalarMappable(cmap=cmap)
+    sm.set_array([])
+    """
     plt.subplot(grid[0, :])
     Pshape = P.maps[0].val.shape
+    t_volume = P.domain[0][0].distances[0] * P.domain[0][0].shape[0]//2
     e_volume = P.domain[0][1].distances[0] * P.domain[0][1].shape[0]//2
     plt.imshow(P.maps[0].val[Pshape[0]//4:Pshape[0]//4*3, 0:Pshape[1]//2].T,
-               cmap='inferno', vmin=-8, origin='lower', extent=[start_time, end_time, 0, e_volume])
+               cmap='inferno', origin='lower', extent=[0, t_volume, 0, e_volume])
     plt.title('Reconstructed Signal for iteration step %d_%d' % (jj, ii))
     plt.xlabel('time in s')
     plt.ylabel('Energy in keV')
-    plt.subplot(grid[1, 0])
+    plt.colorbar()
+    if probes is not None:
+        plt.subplot(grid[1, :])
+        plt.imshow(probes.val[Pshape[0]//4:Pshape[0]//4*3, 0:Pshape[1]//2].T,
+                   cmap='inferno', origin='lower', extent=[0, t_volume, 0, e_volume])
+        plt.title('First Probe taken %d_%d' % (jj, ii))
+        plt.xlabel('time in s')
+        plt.ylabel('Energy in keV')
+        plt.colorbar()
+    if probes is None:
+        plt.subplot(grid[1, 0])
+    else:
+        plt.subplot(grid[2, 0])
     plt.loglog(ift.exp(P.tau[0][0]).val)
     plt.title('Reconstructed Time Power Spectrum')
-    plt.subplot(grid[1, 1])
+    if probes is None:
+        plt.subplot(grid[1, 1])
+    else:
+        plt.subplot(grid[2, 1])
     plt.loglog(ift.exp(P.tau[0][1]).val)
     plt.title('Reconstructed Energy Power Spectrum')
 
