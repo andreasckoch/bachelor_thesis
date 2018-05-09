@@ -38,7 +38,7 @@ logfile.write(intial_log_message)
 
 def make_problem():
 
-    dic_config = mock_signal_s_xy()
+    dic_config = mock_signal_s_xy(t_pix, e_pix, t_volume, e_volume, smoothing_time, smoothing_energy, smoothness_sigma_time, smoothness_sigma_energy)
 
     s = dic_config['signal']
     print("Signal: {}   {}".format(s.max(), s.min()))

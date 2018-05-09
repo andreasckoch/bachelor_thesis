@@ -20,34 +20,12 @@ from __future__ import division
 import numpy as np
 import nifty4 as ift
 import datetime
-import time
-import sys
-import matplotlib.pyplot as plt
-
-import utilities as QPOutils
-import QPO
-import solver
-
-from d4po.problem import Problem
 
 timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 plotpath = 'trash'
 
 
-iterations = 5
-t_pix = 2**8  # pixels in time after padding (signal has 2*t_pix pixels)
-e_pix = 256  # pixels in energy after padding (signal has 2*e_pix pixels)
-start_time = 845
-end_time = 1245
-t_volume = 10  # volume in data
-e_volume = 10  # volume in data
-smoothing_time = 1.0e-6
-smoothing_energy = 1.0e-3
-smoothness_sigma_time = 0.3
-smoothness_sigma_energy = 0.4
-
-
-def mock_signal_s_xy():
+def mock_signal_s_xy(t_pix, e_pix, t_volume, e_volume, smoothing_time, smoothing_energy, smoothness_sigma_time, smoothness_sigma_energy):
     # setting random seed to get comparable results_1e3
     np.random.seed(42)
     dic_config = {}
