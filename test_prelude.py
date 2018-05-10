@@ -6,6 +6,7 @@ import time
 import sys
 import matplotlib.pyplot as plt
 import solver
+from plot_data import plot_signal_data as psd
 
 from d4po.problem import Problem
 
@@ -17,12 +18,12 @@ plotpath = '/afs/mpa/temp/ankoch/plots'
 
 
 iterations = 10
-t_pix = 40 * 2**8  # pixels in time after padding (signal has 2*t_pix pixels)
-e_pix = 10 * 256  # pixels in energy after padding (signal has 2*e_pix pixels)
+t_pix = 2**4 * 2**8  # pixels in time after padding (signal has 2*t_pix pixels)
+e_pix = 2**2 * 2**8  # pixels in energy after padding (signal has 2*e_pix pixels)
 start_time = 845
 end_time = 1245
-t_volume = 40 * 10  # volume in data
-e_volume = 10 * 10  # volume in data
+t_volume = 2**4 * 10  # volume in data
+e_volume = 2**2 * 10  # volume in data
 smoothing_time = 1.0e-4
 smoothing_energy = 1.0e-1
 smoothness_sigma_time = 0.3
@@ -48,6 +49,10 @@ def make_problem():
     R = dic_config['Response']
     tau_0 = ift.log(dic_config['or_spec_0'])
     tau_1 = ift.log(dic_config['or_spec_1'])
+    tau_0_signal = ift.log(dic_config['spec_0'])
+    tau_1_signal = ift.log(dic_config['spec_1'])
+
+    psd(s, data, tau_0_signal, tau_1_signal, timestamp, plotpath)
 
     print("Power Spectra Max:1: {}, 2: {}".format(tau_0.max(), tau_1.max()))
 

@@ -38,8 +38,37 @@ def get_filenames(file='fields'):
     return filenames
 
 
-def signal_plot():
-    pass
+def plot_signal_data(s, data, tau0, tau1, timestamp, plotpath):
+    t_volume = s.domain[0].distances[0] * s.domain[0].shape[0]//2
+    e_volume = s.domain[1].distances[0] * s.domain[1].shape[0]//2
+
+    plt.subplot(221)
+    plt.imshow(s.val.T,
+               cmap='inferno', origin='lower', extent=[0, t_volume, 0, e_volume])
+    plt.title('Signal')
+    plt.xlabel('time in s')
+    plt.ylabel('Energy in keV')
+    plt.colorbar()
+
+    plt.subplot(222)
+    plt.imshow(data.val.T,
+               cmap='inferno', origin='lower', extent=[0, t_volume, 0, e_volume])
+    plt.title('Data')
+    plt.xlabel('time in s')
+    plt.ylabel('Energy in keV')
+    plt.colorbar()
+
+    plt.subplot(223)
+    plt.loglog(ift.exp(tau0).val)
+    plt.title('Time Power Spectrum')
+
+    plt.subplot(224)
+    plt.loglog(ift.exp(tau1).val)
+    plt.title('Energy Power Spectrum')
+
+    plt.tight_layout()
+    plt.savefig(plotpath + '/start_plot_{}.png'.format(timestamp), dpi=800)
+    print('Plotted intermediate plot to ' + plotpath + '/start_plot_{}.png'.format(timestamp))
 
 
 def powerspec_plot(which_powerspec=0, vmin=None, save=False, etc=None):
