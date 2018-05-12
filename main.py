@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import utilities as QPOutils
 import QPO
 import solver
+from plot_data import plot_signal_data as psd
 
 from d4po.problem import Problem
 
@@ -104,6 +105,8 @@ def make_problem():
     P = Problem(data, statistics='PLN')
     P.add(m_initial, R=R, Signal_attributes=[[tau_0, alpha_0, q_0, s_0, True],
                                              [tau_1, alpha_1, q_1, s_1, True]])
+
+    psd(m_initial, data, tau_0, tau_1, timestamp, plotpath)
     """
     # draw better starting taus:
     s_dirty = P.ResponseOp[0].adjoint_times(P.data)

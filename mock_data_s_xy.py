@@ -83,9 +83,9 @@ def mock_signal_s_xy(t_pix, e_pix, t_volume, e_volume, smoothing_time, smoothing
     dic_config['or_spec_0'] = p_field_s_0.copy()
 
     # generate delta peak
-    kernel_0 = [1., 80., 1.]
+    kernel_0 = [1., 20., 1.]
     kernel_1 = [1., 1., 1.]
-    position_0 = 0.05
+    position_0 = 0.02
     position_1 = 0.05
 
     for i in range(len(kernel_0)):
@@ -99,7 +99,7 @@ def mock_signal_s_xy(t_pix, e_pix, t_volume, e_volume, smoothing_time, smoothing
     #########################################################################
 
     # setting signal parameters
-    lambda_s_1 = 10.  # signal correlation length
+    lambda_s_1 = .2  # signal correlation length
     sigma_s_1 = .3  # signal variance
 
     # calculating parameters

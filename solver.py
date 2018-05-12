@@ -53,10 +53,10 @@ class D4PO_solver(object):
 
         # setting convergence critiria, loosly in the begining, becoming stricter later on
         fudge = np.sqrt(self._P.maps[0].scalar_weight())
-        tag_map_outer = self._P.maps[0].size * .0005 * fudge / (jj + 1)
+        tag_map_outer = self._P.maps[0].size * .005 * fudge / (jj + 1)
         tag_map_inner = 1e-4
 
-        d_h = .001 / (jj ** 2. + 1)
+        d_h = .01 / (jj ** 2. + 1)
 
         d_h_p = .0001 / (jj ** 2. + 1)
 
@@ -67,7 +67,7 @@ class D4PO_solver(object):
 
         map_s_crtl_o = HamiltonianNormController(name='MSC', tol_abs_gradnorm=tag_map_outer,
                                                  tol_abs_hamiltonian=d_h, convergence_level=3,
-                                                 iteration_limit=500, verbose=True)
+                                                 iteration_limit=data.size, verbose=True)
         t_crtl_o = HamiltonianNormController(name='PC', tol_abs_gradnorm=tag_power_outer,
                                              tol_abs_hamiltonian=d_h_p,
                                              convergence_level=5, iteration_limit=30 * max(data.shape),
@@ -76,7 +76,7 @@ class D4PO_solver(object):
         self._t_crtl_i = HamiltonianNormController(tol_abs_gradnorm=tag_power_inner,
                                                    convergence_level=5, iteration_limit=30 * max(data.shape), verbose=False)
         self._map_s_crtl_i = HamiltonianNormController(tol_abs_gradnorm=tag_map_inner, convergence_level=3,
-                                                       iteration_limit=100, tol_abs_hamiltonian=d_h, verbose=False)
+                                                       iteration_limit=5000, tol_abs_hamiltonian=d_h, verbose=False)
 
         self._map_s_minimizer_SD = ift.SteepestDescent(map_s_crtl_o)
         self._map_s_minimizer_BFGS = ift.VL_BFGS(map_s_crtl_o, max_history_length=10)
@@ -164,7 +164,7 @@ class D4PO_solver(object):
 
                     m, s = divmod(time.time()-tick, 60)
                     h, m = divmod(m, 60)
-                    print('Solver Iteration #%d took: %dh%02dmin%02ds\n' % (jj, h, m, s))
+                    print('Solver Iteration #%d.%d took: %dh%02dmin%02ds\n' % (jj, ii, h, m, s))
 
             self._update_para(jj + 1)
 

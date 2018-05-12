@@ -1,6 +1,7 @@
 __pycache__
 *.png
 trash
+fallback
 data
 test.py
 plot_data.py
