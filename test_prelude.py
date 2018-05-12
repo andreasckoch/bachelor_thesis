@@ -18,14 +18,14 @@ plotpath = '/afs/mpa/temp/ankoch/plots'
 
 
 iterations = 10
-t_pix = 2**4 * 2**8  # pixels in time after padding (signal has 2*t_pix pixels)
-e_pix = 2**2 * 2**8  # pixels in energy after padding (signal has 2*e_pix pixels)
+t_pix = 2**5 * 2**8  # pixels in time after padding (signal has 2*t_pix pixels)
+e_pix = 2**3 * 2**8  # pixels in energy after padding (signal has 2*e_pix pixels)
 start_time = 845
 end_time = 1245
-t_volume = 2**4 * 10  # volume in data
-e_volume = 2**2 * 10  # volume in data
-smoothing_time = 1.0e-4
-smoothing_energy = 1.0e-1
+t_volume = 2**5 * 10  # volume in data
+e_volume = 2**3 * 10  # volume in data
+smoothing_time = 1.0e-6
+smoothing_energy = 1.0e-3
 smoothness_sigma_time = 0.3
 smoothness_sigma_energy = 0.4
 
@@ -39,12 +39,9 @@ logfile.write(intial_log_message)
 
 def make_problem():
 
-    dic_config = mock_signal_s_xy(t_pix, e_pix, t_volume, e_volume, smoothing_time, smoothing_energy, smoothness_sigma_time, smoothness_sigma_energy)
+    dic_config = mock_signal_s_xy(t_pix, e_pix, t_volume, e_volume, smoothing_time, smoothing_energy, smoothness_sigma_time, smoothness_sigma_energy, True)
 
     s = dic_config['signal']
-    print("Signal: {}   {}".format(s.max(), s.min()))
-    s.val[:] += [[3.]]
-    print("Signal: {}   {}".format(s.max(), s.min()))
     data = dic_config['data']
     R = dic_config['Response']
     tau_0 = ift.log(dic_config['or_spec_0'])
@@ -135,12 +132,3 @@ s_diff = np.mean(np.absolute(P.maps[0].val - signal_goal.val))
 tau0_diff = np.mean(np.absolute(P.tau[0][0].val - tau0_goal.val))
 tau1_diff = np.mean(np.absolute(P.tau[0][1].val - tau1_goal.val))
 print("Differences: signal: {}, tau0: {}, tau1: {}".format(s_diff, tau0_diff, tau1_diff))
-
-
-# results speichern:
-try:
-    P_res.dump('results/r_{}.p'.format(timestamp))
-except Exception as e:
-    print(e, 'not able to save to trash, instead saving locally')
-    P_res.dump('r_{}.p'.format(timestamp))
-# nachher wieder laden mit Problem.load(), dann plotten
