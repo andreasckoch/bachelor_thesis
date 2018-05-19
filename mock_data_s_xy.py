@@ -20,12 +20,13 @@ from __future__ import division
 import numpy as np
 import nifty4 as ift
 import datetime
+import QPO
 
 timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 plotpath = 'trash'
 
 
-def mock_signal_s_xy(t_pix, e_pix, t_volume, e_volume, smoothing_time, smoothing_energy, smoothness_sigma_time, smoothness_sigma_energy, QPO=False):
+def mock_signal_s_xy(t_pix, e_pix, t_volume, e_volume, smoothing_time, smoothing_energy, smoothness_sigma_time, smoothness_sigma_energy, qpo=False):
     # setting random seed to get comparable results_1e3
     np.random.seed(42)
     dic_config = {}
@@ -52,7 +53,7 @@ def mock_signal_s_xy(t_pix, e_pix, t_volume, e_volume, smoothing_time, smoothing
 
     #kernel_0 = 0. * x_0.distances[0]
     #kernel_1 = 0. * x_1.distances[0]
-    if QPO is False:
+    if qpo is False:
         R = ift.GeometryRemover(ift.DomainTuple.make((x_0, x_1)))
     else:
         R = QPO.Response(ift.DomainTuple.make((x_0, x_1)))

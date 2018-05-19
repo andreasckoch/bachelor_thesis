@@ -18,16 +18,17 @@ plotpath = '/afs/mpa/temp/ankoch/plots'
 
 
 iterations = 10
-t_pix = 2**5 * 2**8  # pixels in time after padding (signal has 2*t_pix pixels)
-e_pix = 2**3 * 2**8  # pixels in energy after padding (signal has 2*e_pix pixels)
+t_pix = 2**14  # pixels in time after padding (signal has 2*t_pix pixels)
+e_pix = 2**8  # pixels in energy after padding (signal has 2*e_pix pixels)
 start_time = 845
 end_time = 1245
-t_volume = 2**5 * 10  # volume in data
-e_volume = 2**3 * 10  # volume in data
+t_volume = 400  # volume in data
+e_volume = 114.6  # volume in data
 smoothing_time = 1.0e-6
 smoothing_energy = 1.0e-3
 smoothness_sigma_time = 0.3
 smoothness_sigma_energy = 0.4
+our_response = True
 
 
 intial_log_message = "Analyzing SGR1806 with:\niterations = {}\nt_pix = 2**{}\ne_pix = {}\nstart_time = {}\nend_time = {}\nt_volume = {}\ne_volume = {}\nsmoothing_time = {:.0e}\nsmoothing_energy = {:.0e}\n"
@@ -39,7 +40,7 @@ logfile.write(intial_log_message)
 
 def make_problem():
 
-    dic_config = mock_signal_s_xy(t_pix, e_pix, t_volume, e_volume, smoothing_time, smoothing_energy, smoothness_sigma_time, smoothness_sigma_energy, True)
+    dic_config = mock_signal_s_xy(t_pix, e_pix, t_volume, e_volume, smoothing_time, smoothing_energy, smoothness_sigma_time, smoothness_sigma_energy, our_response)
 
     s = dic_config['signal']
     data = dic_config['data']

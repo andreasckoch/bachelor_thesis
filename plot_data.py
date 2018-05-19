@@ -8,7 +8,7 @@ from d4po.problem import Problem
 import os
 import datetime
 
-
+tau_ticks = 4
 start_time = 845
 end_time = 1245
 t_volume = end_time - start_time  # volume in data
@@ -42,39 +42,66 @@ def plot_signal_data(s, data, tau0, tau1, timestamp, plotpath):
     t_volume = s.domain[0].distances[0] * s.domain[0].shape[0]//2
     e_volume = s.domain[1].distances[0] * s.domain[1].shape[0]//2
 
-    plt.subplot(221)
+    plt.figure(figsize=(8, 4))
     plt.imshow(s.val.T,
                cmap='inferno', origin='lower', extent=[0, t_volume, 0, e_volume])
     plt.title('Signal')
-    plt.xlabel('time in s')
-    plt.ylabel('Energy in keV')
+    plt.xlabel('Time [s]')
+    plt.ylabel('Energy [keV]')
     plt.colorbar()
+    save_plot(plotpath, 'start_signal', timestamp, 0, 0)
+    plt.gcf().clear()
 
-    plt.subplot(222)
+    plt.figure(figsize=(8, 4))
     plt.imshow(data.val.T,
                cmap='inferno', origin='lower', extent=[0, t_volume, 0, e_volume])
     plt.title('Data')
-    plt.xlabel('time in s')
-    plt.ylabel('Energy in keV')
+    plt.xlabel('Time [s]')
+    plt.ylabel('Energy [keV]')
     plt.colorbar()
+    save_plot(plotpath, 'start_data', timestamp, 0, 0)
+    plt.gcf().clear()
 
-    plt.subplot(223)
+    plt.figure(figsize=(8, 8))
     plt.loglog(ift.exp(tau0).val)
     plt.title('Time Power Spectrum')
+    plt.xlabel('k [1/s]')
+    plt.ylabel('P(k)')
+    plt.yticks(round_to_1(np.exp(np.linspace(tau0.min(), tau0.max(), num=tau_ticks))))
+    save_plot(plotpath, 'start_tau0', timestamp, 0, 0)
+    plt.gcf().clear()
 
-    plt.subplot(224)
-    plt.loglog(ift.exp(tau1).val)
+    plt.figure(figsize=(8, 8))
+    plt.loglog(tau1.domain[0].k_lengths, ift.exp(tau1).val)
     plt.title('Energy Power Spectrum')
+    plt.xlabel('k [1/s]')
+    plt.ylabel('P(k)')
+    plt.yticks(round_to_1(np.exp(np.linspace(tau1.min(), tau1.max(), num=tau_ticks))))
+    save_plot(plotpath, 'start_tau1', timestamp, 0, 0)
+    plt.gcf().clear()
 
-    plt.tight_layout()
-    plt.savefig(plotpath + '/start_plot_{}.png'.format(timestamp), dpi=800)
-    print('Plotted intermediate plot to ' + plotpath + '/start_plot_{}.png'.format(timestamp))
+
+def round_to_1(x):
+    prov = []
+    print(x)
+    for x_i in x:
+        if x_i != 0:
+            if x_i < 1:
+                decimal = -np.log10(np.absolute(x_i)).astype('i8') + 1
+                print(-np.log10(x_i), decimal)
+                prov.append(np.round(x_i, decimal))
+            else:
+                decimal = -np.log10(np.absolute(x_i)).astype('i8')
+                print(-np.log10(x_i), decimal)
+                prov.append(np.round(x_i, decimal))
+    print(prov)
+    return prov
 
 
 def plot_iteration(P, timestamp, jj, plotpath, ii=0, probes=None):
     plt.ioff()
     plt.figure(figsize=(8, 8))
-    grid = plt.GridSpec(2, 2, wspace=0.2, hspace=0.05, left=0.1, right=0.96, top=0.98, bottom=0.05)
+    # grid = plt.GridSpec(2, 2, wspace=0.2, hspace=0.05, left=0.1, right=0.96, top=0.98, bottom=0.05)
 
     plt.subplot(221)
     Pshape = P.maps[0].val.shape
@@ -98,6 +125,7 @@ def plot_iteration(P, timestamp, jj, plotpath, ii=0, probes=None):
     plt.subplot(223)
     plt.loglog(ift.exp(P.tau[0][0]).val)
     plt.title('Reconstructed Time Power Spectrum')
+    # plt.yticks
 
     plt.subplot(224)
     plt.loglog(ift.exp(P.tau[0][1]).val)
@@ -113,50 +141,63 @@ def plot_iteration(P, timestamp, jj, plotpath, ii=0, probes=None):
         print('Plotted intermediate plot to fallback/iteration_plot_{}_{}_{}.png'.format(timestamp, jj, ii))
 
 
-if __name__ == "__main__":
-    filenames_fields = get_filenames()
+def real_plot_iteration(P, timestamp, jj, plotpath, ii=0, probes=None):
 
-    if len(filenames_fields) > 0:
-        fields = load(filenames_fields)
-        print('Newest Fields available:', filenames_fields[0].split('fields')[1].split('.')[0][1:], '\n', fields.files)
-        print("Plot a field with e.g.: plot(fields['signal'])")
-    else:
-        print('There are currently no fields files in results/')
+    # signal first
+    plt.ioff()
+    plt.figure(figsize=(8, 4))
+    Pshape = P.maps[0].val.shape
+    t_volume = P.domain[0][0].distances[0] * P.domain[0][0].shape[0]//2
+    e_volume = P.domain[0][1].distances[0] * P.domain[0][1].shape[0]//2
+    plt.imshow(P.maps[0].val[Pshape[0]//4:Pshape[0]//4*3, 0:Pshape[1]//2].T,
+               cmap='inferno', origin='lower', extent=[0, t_volume, 0, e_volume])
+    plt.title('Reconstructed Signal for iteration step %d_%d' % (jj, ii))
+    plt.xlabel('Time [s]')
+    plt.ylabel('Energy [keV]')
+    plt.colorbar()
+    save_plot(plotpath, 'signal', timestamp, jj, ii)
+    plt.gcf().clear()
 
-"""
+    # probe 2nd
+    if probes is not None:
+        plt.figure(figsize=(8, 4))
+        plt.imshow(probes.val[Pshape[0]//4:Pshape[0]//4*3, 0:Pshape[1]//2].T,
+                   cmap='inferno', origin='lower', extent=[0, t_volume, 0, e_volume])
+        plt.title('First Probe taken %d_%d' % (jj, ii))
+        plt.xlabel('Time [s]')
+        plt.ylabel('Energy [keV]')
+        plt.colorbar()
+        save_plot(plotpath, 'probe', timestamp, jj, ii)
+        plt.gcf().clear()
+
+    # Power Spectra
     plt.figure(figsize=(8, 8))
-    grid = plt.GridSpec(2, 2, wspace=0.15, hspace=0.05, left=0.06, right=0.96, top=0.98, bottom=0.05)
-    plt.subplot(grid[0, :])
-    Pshape = fields['signal'].shape
-    plt.imshow(fields['signal'][Pshape[0]//4:Pshape[0]//4*3, 0:Pshape[1]//2].T,
-               cmap='inferno', vmin=-8, origin='lower', extent=[start_time, end_time, 0, e_volume])
+    plt.loglog(P.tau[0][0].domain[0].k_lengths, ift.exp(P.tau[0][0]).val)
+    plt.title('Reconstructed Power Spectrum in Time Domain')
+    plt.xlabel('k [1/s]')
+    plt.ylabel('P(k)')
+    plt.yticks(round_to_1(np.exp(np.linspace(P.tau[0][0].min(), P.tau[0][0].max(), num=tau_ticks))))
+    save_plot(plotpath, 'tau0', timestamp, jj, ii)
+    plt.gcf().clear()
 
-    plt.title('Reconstructed Signal')
-    plt.xlabel('time in s')
-    plt.ylabel('Energy in keV')
-    plt.subplot(grid[1, 0])
-    plt.loglog(np.exp(fields['tau0']))
-    plt.title('Reconstructed Time Power Spectrum')
-    plt.subplot(grid[1, 1])
-    plt.loglog(np.exp(fields['tau0']))
-    plt.title('Reconstructed Energy Power Spectrum')
+    plt.figure(figsize=(8, 8))
+    plt.loglog(P.tau[0][0].domain[0].k_lengths, ift.exp(P.tau[0][1]).val)
+    plt.title('Reconstructed Power Spectrum in Energy Domain')
+    plt.xlabel('k [1/s]')
+    plt.ylabel('P(k)')
+    plt.yticks(round_to_1(np.exp(np.linspace(P.tau[0][1].min(), P.tau[0][1].max(), num=tau_ticks))))
+    save_plot(plotpath, 'tau1', timestamp, jj, ii)
+    plt.gcf().clear()
 
-    # plt.tight_layout()
-    plt.savefig('test_plot.png', dpi=800)
-    # plt.show()
-"""
+    # save power spectra in files
+    np.save(plotpath+'/{}_{}_{}_tau0'.format(timestamp, jj, ii), P.tau[0][0].val)
+    np.save(plotpath+'/{}_{}_{}_tau1'.format(timestamp, jj, ii), P.tau[0][1].val)
 
-"""
-def plot_data(data, time_bins, energy_bins, title='', Norm=None, vmax=20):
 
-    if Norm == 'Log':
-        Norm = colors.LogNorm(vmin=1, vmax=np.max(data))
-    else:
-        Norm = None
-
-    plt.imshow(data.T, cmap='inferno', norm=Norm, vmax=vmax, origin='lower', extent=[
-               time_bins[0], time_bins[-1], energy_bins[0], energy_bins[-1]])
-    plt.title(title)
-    plt.ylabel('Energy Channels')
-    plt.xlabel('Time in s')
-"""
+def save_plot(plotpath, name, timestamp, jj, ii):
+    try:
+        plt.savefig(plotpath + '/{}_{}_{}_'.format(timestamp, jj, ii) + name + '.png', dpi=800, bbox_inches='tight')
+        print('Plotted intermediate plot to ' + plotpath + '/{}_{}_{}_'.format(timestamp, jj, ii) + name + '.png')
+    except Exception as e:
+        plt.savefig('fallback/' + '{}_{}_{}_'.format(timestamp, jj, ii) + name + '.png', dpi=800)
+        print('Plotted intermediate plot to fallback/' + '{}_{}_{}_'.format(timestamp, jj, ii) + name + '.png')

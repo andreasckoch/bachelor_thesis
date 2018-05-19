@@ -108,7 +108,7 @@ class D4PO_solver(object):
                                    nprobes=self._nprobes, diffuse_like=True, ncpu=self._ncpu)()
                 self._P.probes = 0, probes_s
                 # self._P.maps_uncertainty = 0, get_uncertainty(probes_s)
-                pd.plot_iteration(self._P, timestamp=self._timestamp, jj=jj, plotpath=self._plotpath, probes=probes_s[0])
+                pd.real_plot_iteration(self._P, timestamp=self._timestamp, jj=jj, plotpath=self._plotpath, probes=probes_s[0])
                 self._make_energy()
                 # pdb.set_trace()
                 s = self._map_s_minimizer_NT(self._E_map_s)[0].position
@@ -160,11 +160,11 @@ class D4PO_solver(object):
                     self._P.maps = 0, ift.Field(s.domain, val=np.clip(s.val, -s.max(), s.max()))
                     self._make_energy()
 
-                    pd.plot_iteration(self._P, timestamp=self._timestamp, jj=jj, plotpath=self._plotpath, ii=ii, probes=probes_s[0])
-
                     m, s = divmod(time.time()-tick, 60)
                     h, m = divmod(m, 60)
                     print('Solver Iteration #%d.%d took: %dh%02dmin%02ds\n' % (jj, ii, h, m, s))
+
+                pd.real_plot_iteration(self._P, timestamp=self._timestamp, jj=jj, plotpath=self._plotpath, ii=0, probes=self._P.probes[0][0])
 
             self._update_para(jj + 1)
 
