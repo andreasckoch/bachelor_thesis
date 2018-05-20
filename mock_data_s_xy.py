@@ -86,7 +86,7 @@ def mock_signal_s_xy(t_pix, e_pix, t_volume, e_volume, smoothing_time, smoothing
     # generate delta peak
     kernel_0 = [1., 20., 1.]
     kernel_1 = [1., 1., 1.]
-    position_0 = 0.02
+    position_0 = 0.001
     position_1 = 0.05
 
     for i in range(len(kernel_0)):
