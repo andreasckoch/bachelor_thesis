@@ -156,8 +156,8 @@ class D4PO_solver(object):
                     self._make_energy()
 
                     print('optimizing diffuse map')
-                    s = self._map_s_minimizer_BFGS(self._E_map_s)[0].position
-                    self._P.maps = 0, ift.Field(s.domain, val=np.clip(s.val, -s.max(), s.max()))
+                    # s = self._map_s_minimizer_BFGS(self._E_map_s)[0].position
+                    # self._P.maps = 0, ift.Field(s.domain, val=np.clip(s.val, -s.max(), s.max()))
                     self._make_energy()
 
                     m, s = divmod(time.time()-tick, 60)
