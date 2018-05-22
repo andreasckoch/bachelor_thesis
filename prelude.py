@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import utilities as QPOutils
 import QPO
 import solver
+import plot_data as pd
 
 from d4po.problem import Problem
 
@@ -21,14 +22,14 @@ plotpath = '/afs/mpa/temp/ankoch/plots'
 iterations = 5
 t_pix = 2**8  # pixels in time after padding (signal has 2*t_pix pixels)
 e_pix = 256  # pixels in energy after padding (signal has 2*e_pix pixels)
-start_time = 845
+start_time = 855
 end_time = 1245
 t_volume = end_time - start_time  # volume in data
 e_volume = 114.6  # volume in data
-smoothing_time = 1.0e-6
-smoothing_energy = 1.0e-3
-smoothness_sigma_time = 1.
-smoothness_sigma_energy = 1.
+smoothing_time = 1.0e-4
+smoothing_energy = 1.0e-2
+# smoothness_sigma_time = 1.
+# smoothness_sigma_energy = 1.
 
 
 intial_log_message = "Analyzing SGR1806 with:\niterations = {}\nt_pix = 2**{}\ne_pix = {}\nstart_time = {}\nend_time = {}\nt_volume = {}\ne_volume = {}\nsmoothing_time = {:.0e}\nsmoothing_energy = {:.0e}\n"
@@ -86,7 +87,7 @@ def make_problem():
     data = QPOutils.get_data(start_time, end_time, t_pix, seperate_instruments=True)
     time_mask = QPOutils.get_time_mask(data, R.time_padded_domain, threshold=int(2**(int(np.log2(t_pix))-12)))
     R.set_mask(time_mask)
-    data = ift.Field(R.target, val=np.clip(data, 1e-10, data.max()))
+    data = ift.Field(R.target, val=np.clip(data, 1e-12, data.max()))
 
     # initial guesses
     m_initial = ift.Field(R.domain, val=1.)
@@ -161,8 +162,16 @@ P_res = D4PO.results
 
 # auf prelude nicht plotten, sondern results speichern:
 try:
-    P_res.dump('/afs/mpa/temp/ankoch/results/r_{}.p'.format(timestamp))
+    pd.save_in_files('/afs/mpa/temp/ankoch/results/', 'signal_final', P_res.maps[0])
+    pd.save_in_files('/afs/mpa/temp/ankoch/results/', 'signal_uncertainty_final', P_res.maps_uncertainty[0])
+    pd.save_in_files('/afs/mpa/temp/ankoch/results/', 'tau0_final', P_res.tau[0][0].val)
+    pd.save_in_files('/afs/mpa/temp/ankoch/results/', 'tau1_final', P_res.tau[0][1].val)
+    pd.save_in_files('/afs/mpa/temp/ankoch/results/', 'tau0_uncertainty_final', P_res.tau_uncertainty[0][0].val)
+    pd.save_in_files('/afs/mpa/temp/ankoch/results/', 'tau1_uncertainty_final', P_res.tau_uncertainty[0][1].val)
+
 except Exception as e:
     print(e, 'not able to save to afs, saving to scratch instead')
-    P_res.dump('r_{}.p'.format(timestamp))
+    pd.save_in_files('fallback/', 'signal_final', P_res.maps[0])
+    pd.save_in_files('fallback/', 'tau0_final', P_res.tau[0][0].val)
+    pd.save_in_files('fallback/', 'tau1_final', P_res.tau[0][1].val)
 # nachher wieder laden mit Problem.load(), dann plotten

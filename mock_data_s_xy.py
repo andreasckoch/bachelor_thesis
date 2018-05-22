@@ -109,7 +109,7 @@ def mock_signal_s_xy(t_pix, e_pix, t_volume, e_volume, smoothing_time, smoothing
 
     # creating Power Operator with given spectrum
     spec_s_1 = (lambda k: a_s_1 / (1 + (k / k0_1) ** 2) ** 2)
-    p_field_s_1 = ift.Field(p_1, val=spec_s_1(p_1.k_lengths), dtype=np.float64)
+    p_field_s_1 = ift.Field(p_1, val=10**3 * spec_s_1(p_1.k_lengths), dtype=np.float64)
 
     # save original power spectrum
     dic_config['or_spec_1'] = p_field_s_1.copy()
@@ -125,7 +125,7 @@ def mock_signal_s_xy(t_pix, e_pix, t_volume, e_volume, smoothing_time, smoothing
     # drawing a diffuse random field with above defined correlation structure
     #########################################################################
 
-    fp_s_0 = ift.Field(p_0, val=(lambda k: spec_s_0(k))(p_0.k_lengths))
+    fp_s_0 = ift.Field(p_0, val=10**3 * (lambda k: spec_s_0(k))(p_0.k_lengths))
     fp_s_1 = ift.Field(p_1, val=(lambda k: spec_s_1(k))(p_1.k_lengths))
 
     # generate delta peaks

@@ -164,41 +164,9 @@ def scale_and_normalize(x, instrument_factors):
     # Input/Output Dimensions: 3 x t_pix x 256
     if isinstance(x, ift.Field):
         x = x.val
-    f = x.shape[2] * instrument_factors[:, np.newaxis, :] / np.sum(instrument_factors, axis=1)[:, np.newaxis, np.newaxis]
-    # print(np.amin(f))
-    x = x.copy() * f
+    # f = x.shape[2] * instrument_factors[:, np.newaxis, :] / np.sum(instrument_factors, axis=1)[:, np.newaxis, np.newaxis]
+    # x = x.copy() * f
     return x
-
-
-def get_energy_widths(energy_bins):
-    # calculate width of the energy bin of each channel
-    # energy_bins should have dim: 2 x 256
-    energy_bins_width = np.zeros((3, 256))
-    for i in range(energy_bins.shape[0]):
-        for j in range(energy_bins.shape[1]):
-            if j == 0:  # first width is difference of component to 0
-                energy_bins_width[:2, 0] = energy_bins[:, 0]
-            elif energy_bins[i, j] != energy_bins[i, j - 1]:  # here the calculation happens
-                energy_bins_width[i, j] = energy_bins[i, j] - energy_bins[i, j - 1]
-            else:
-                energy_bins_width[i, j] = energy_bins_width[i, j - 1]  # if two channels have the same bin
-
-    energy_bins_width[2, :] = energy_bins_width[1, :]
-
-    return energy_bins_width
-
-
-def get_mean_energy(energy_bins):
-    # INPUT: N x number of instruments dimensionality, where N refers to number of channels
-    # Only 1 Channel per Component allowed
-    energy_bins_mean = energy_bins.copy()
-
-    for i in range(energy_bins.shape[0]):
-        if i is not 0:
-            # consider all instrument rows
-            energy_bins_mean[i, :] = (energy_bins[i, :] + energy_bins[i - 1, :]) / 2
-
-    return energy_bins_mean
 
 
 def build_energy_response(signal_domain, max_e, disgard_starting_channels=True):

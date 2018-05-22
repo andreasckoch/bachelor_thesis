@@ -54,20 +54,20 @@ class D4PO_solver(object):
         # setting convergence critiria, loosly in the begining, becoming stricter later on
         fudge = np.sqrt(self._P.maps[0].scalar_weight())
         tag_map_outer = self._P.maps[0].size * .005 * fudge / (jj + 1)
-        tag_map_inner = 1e-4
+        tag_map_inner = tag_map_outer * (jj ** 4. + 1) * fudge
 
-        d_h = .01 / (jj ** 2. + 1)
+        d_h = .0001 / (jj ** 2. + 1)
 
-        d_h_p = .0001 / (jj ** 2. + 1)
+        d_h_p = .0005 / (jj ** 2. + 1)
 
         # eher d_h_p und tag_power_inner
 
-        tag_power_outer = max(data.shape) * .05 / (jj + 1)
-        tag_power_inner = max(data.shape) * .05 / (jj + 1)
+        tag_power_outer = max(data.shape) * .01 / (jj + 1)
+        tag_power_inner = max(data.shape) * .01 / (jj + 1)
 
         map_s_crtl_o = HamiltonianNormController(name='MSC', tol_abs_gradnorm=tag_map_outer,
-                                                 tol_abs_hamiltonian=d_h, convergence_level=3,
-                                                 iteration_limit=data.size, verbose=True)
+                                                 tol_abs_hamiltonian=d_h, convergence_level=5,
+                                                 iteration_limit=200000, verbose=True)
         t_crtl_o = HamiltonianNormController(name='PC', tol_abs_gradnorm=tag_power_outer,
                                              tol_abs_hamiltonian=d_h_p,
                                              convergence_level=5, iteration_limit=30 * max(data.shape),
@@ -76,7 +76,7 @@ class D4PO_solver(object):
         self._t_crtl_i = HamiltonianNormController(tol_abs_gradnorm=tag_power_inner,
                                                    convergence_level=5, iteration_limit=30 * max(data.shape), verbose=False)
         self._map_s_crtl_i = HamiltonianNormController(tol_abs_gradnorm=tag_map_inner, convergence_level=3,
-                                                       iteration_limit=5000, tol_abs_hamiltonian=d_h, verbose=False)
+                                                       iteration_limit=data.size, tol_abs_hamiltonian=d_h, verbose=False)
 
         self._map_s_minimizer_SD = ift.SteepestDescent(map_s_crtl_o)
         self._map_s_minimizer_BFGS = ift.VL_BFGS(map_s_crtl_o, max_history_length=10)
@@ -92,81 +92,56 @@ class D4PO_solver(object):
 
     def __call__(self, iterations):
 
-        for jj in range(iterations):
-
+        for jj in range(iterations-1):
             sys.stdout.flush()
 
-            if jj == 0:
-                tick = time.time()
+            tack = time.time()
+            print('\nSolver Iteration #%d' % (jj))
+            s = self._map_s_minimizer_NT(self._E_map_s)[0].position
+            self._P.maps = 0, ift.Field(s.domain, val=s.val)  # np.clip(s.val,-s.max(), s.max()))
+            self._make_energy()
 
-                print('Solver Iteration #%d' % jj)
-                # print('optimizing diffuse map')
-                print(self._E_map_s.position.min(), self._E_map_s.position.max())
-
-                print("generating probes of diffuse map")
-                probes_s = Sampler(self._E_map_s, meta_information=self._P, component=0,
-                                   nprobes=self._nprobes, diffuse_like=True, ncpu=self._ncpu)()
-                self._P.probes = 0, probes_s
-                # self._P.maps_uncertainty = 0, get_uncertainty(probes_s)
-                pd.real_plot_iteration(self._P, timestamp=self._timestamp, jj=jj, plotpath=self._plotpath, probes=probes_s[0])
-                self._make_energy()
-                # pdb.set_trace()
-                s = self._map_s_minimizer_NT(self._E_map_s)[0].position
-                self._P.maps = 0, ift.Field(s.domain, val=np.clip(s.val, -s.max(), s.max()))
-                self._make_energy()
-
-                m, s = divmod(time.time()-tick, 60)
-                h, m = divmod(m, 60)
-                print('Solver Iteration #%d took: %dh%02dmin%02ds\n' % (jj, h, m, s))
-
-            else:
-                for ii in range(4):
-                    tick = time.time()
-
-                    print('Solver Iteration #%d.%d' % (jj, ii))
-                    tack = time.time()
-                    print("generating probes of diffuse map")
-                    probes_s = Sampler(self._E_map_s, meta_information=self._P, component=0,
-                                       nprobes=self._nprobes, diffuse_like=True, ncpu=self._ncpu)()
-                    self._P.probes = 0, probes_s
-                    # self._P.maps_uncertainty = 0, get_uncertainty(probes_s)
-                    self._make_energy()
-
-                    m, s = divmod(time.time()-tack, 60)
-                    h, m = divmod(m, 60)
-                    print('Probing took: %dh%02dmin%02ds\n' % (h, m, s))
-
-                    # if ii % 2 == 0:
-                    print("optimizing tau-s in 1st-direction")
-                    (E_tau_final_s_0, power_convergence_BFGS) = self._power_minimizer_NT(self._E_tau_s_0)
-                    self._P.tau = 0, [E_tau_final_s_0.position / np.float(self._P.maps[0].domain[1].shape[0]), self._P.tau[0][1]]
-
-                    # elif ii % 2 == 1:
-                    print("optimizing tau-s in 2nd-direction")
-                    (E_tau_final_s_1, power_convergence_BFGS) = self._power_minimizer_NT(self._E_tau_s_1)
-                    self._P.tau = 0, [self._P.tau[0][0], E_tau_final_s_1.position / np.float(self._P.maps[0].domain[0].shape[0])]
-
-                    self._make_energy()
-
-                    print("generating probes of diffuse map")
-                    probes_s = Sampler(self._E_map_s, meta_information=self._P, component=0,
-                                       nprobes=self._nprobes, diffuse_like=True, ncpu=self._ncpu)()
-                    self._P.probes = 0, probes_s
-                    # self._P.maps_uncertainty = 0, get_uncertainty(probes_s)
-                    self._make_energy()
-
-                    print('optimizing diffuse map')
-                    # s = self._map_s_minimizer_BFGS(self._E_map_s)[0].position
-                    # self._P.maps = 0, ift.Field(s.domain, val=np.clip(s.val, -s.max(), s.max()))
-                    self._make_energy()
-
-                    m, s = divmod(time.time()-tick, 60)
-                    h, m = divmod(m, 60)
-                    print('Solver Iteration #%d.%d took: %dh%02dmin%02ds\n' % (jj, ii, h, m, s))
-
-                pd.real_plot_iteration(self._P, timestamp=self._timestamp, jj=jj, plotpath=self._plotpath, ii=0, probes=self._P.probes[0][0])
+            pd.real_plot_iteration(self._P, timestamp=self._timestamp, jj=jj, plotpath=self._plotpath)
+            m, s = divmod(time.time()-tack, 60)
+            h, m = divmod(m, 60)
+            print('Map optimizing #%d took: %dh%02dmin%02ds\n' % (jj, h, m, s))
 
             self._update_para(jj + 1)
+
+            self._P.probes = 0, [self._P.maps[0], self._P.maps[0]]
+            self._make_energy()
+
+            tack = time.time()
+            print("optimizing tau-s in 1st-direction")
+            (E_tau_final_s_0, power_convergence_BFGS) = self._power_minimizer_NT(self._E_tau_s_0)
+            self._P.tau = 0, [E_tau_final_s_0.position /
+                              np.float(self._P.maps[0].domain[1].shape[0]), self._P.tau[0][1]]
+            self._make_energy()
+            m, s = divmod(time.time()-tack, 60)
+            h, m = divmod(m, 60)
+            print('tau_0 #%d took: %dh%02dmin%02ds\n' % (jj, h, m, s))
+
+            tack = time.time()
+            print("optimizing tau-s in 2nd-direction")
+            (E_tau_final_s_1, power_convergence_BFGS) = self._power_minimizer_NT(self._E_tau_s_1)
+            self._P.tau = 0, [self._P.tau[0][0], E_tau_final_s_1.position /
+                              np.float(self._P.maps[0].domain[0].shape[0])]
+
+            self._make_energy()
+            m, s = divmod(time.time()-tack, 60)
+            h, m = divmod(m, 60)
+            print('tau_1 #%d took: %dh%02dmin%02ds\n' % (jj, h, m, s))
+
+        tack = time.time()
+        print('\nSolver Iteration #%d' % (iterations - 1))
+        s = self._map_s_minimizer_NT(self._E_map_s)[0].position
+        self._P.maps = 0, ift.Field(s.domain, val=s.val)  # np.clip(s.val, -s.max(), s.max()))
+        self._make_energy()
+
+        pd.real_plot_iteration(self._P, timestamp=self._timestamp, jj=iterations-1, plotpath=self._plotpath)
+        m, s = divmod(time.time()-tack, 60)
+        h, m = divmod(m, 60)
+        print('Map optimizing #%d took: %dh%02dmin%02ds\n' % (iterations - 1, h, m, s))
 
 
 class D4PO_map_solver(object):

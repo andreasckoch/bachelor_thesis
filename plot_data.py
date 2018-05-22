@@ -63,22 +63,30 @@ def plot_signal_data(s, data, tau0, tau1, timestamp, plotpath):
     plt.gcf().clear()
 
     plt.figure(figsize=(8, 8))
-    plt.loglog(ift.exp(tau0).val)
+    plt.loglog(tau0.domain[0].k_lengths, ift.exp(tau0).val)
     plt.title('Time Power Spectrum')
     plt.xlabel('k [1/s]')
     plt.ylabel('P(k)')
-    plt.yticks(round_to_1(np.exp(np.linspace(tau0.min(), tau0.max(), num=tau_ticks))))
+    plt.yticks(round_to_1(np.exp(np.linspace(tau0.min(), tau0.max(), num=3))))
     save_plot(plotpath, 'start_tau0', timestamp, 0, 0)
     plt.gcf().clear()
+    print(tau0.domain[0].k_lengths[0.001 * tau0.domain[0].k_lengths.shape[0]])
 
     plt.figure(figsize=(8, 8))
-    plt.loglog(tau1.domain[0].k_lengths, ift.exp(tau1).val)
+    ax = plt.gca()
+    ax.loglog(tau1.domain[0].k_lengths, ift.exp(tau1).val)
+    y_ticks = [1.5, 2.0]
+    ax.set_yticks(y_ticks)
+    ax.get_yaxis().set_major_formatter(plt.ScalarFormatter())
     plt.title('Energy Power Spectrum')
-    plt.xlabel('k [1/s]')
-    plt.ylabel('P(k)')
-    plt.yticks(round_to_1(np.exp(np.linspace(tau1.min(), tau1.max(), num=tau_ticks))))
+    ax.set_xlabel('k [1/s]')
+    ax.set_ylabel('P(k)')
+    #plt.yticks(round_to_1(np.exp(np.linspace(tau1.min(), tau1.max(), num=3))))
     save_plot(plotpath, 'start_tau1', timestamp, 0, 0)
     plt.gcf().clear()
+
+    save_in_files(plotpath, '/{}_{}_{}_'.format(timestamp, 0, 0) + 'start_tau0', tau0.val)
+    save_in_files(plotpath, '/{}_{}_{}_'.format(timestamp, 0, 0) + 'start_tau1', tau1.val)
 
 
 def round_to_1(x):
@@ -170,8 +178,8 @@ def real_plot_iteration(P, timestamp, jj, plotpath, ii=0, probes=None):
     plt.figure(figsize=(8, 8))
     plt.loglog(P.tau[0][0].domain[0].k_lengths, ift.exp(P.tau[0][0]).val)
     plt.title('Reconstructed Power Spectrum in Time Domain')
-    plt.xlabel('k [1/s]')
-    plt.ylabel('P(k)')
+    plt.xlabel('q [1/s]')
+    plt.ylabel('P(q)')
     save_plot(plotpath, 'tau0', timestamp, jj, ii)
     plt.gcf().clear()
 
@@ -190,6 +198,9 @@ def real_plot_iteration(P, timestamp, jj, plotpath, ii=0, probes=None):
     if jj % 5 == 0:
         save_in_files(plotpath, '/{}_{}_{}_'.format(timestamp, jj, ii) + 'k_lengths_0', P.tau[0][0].domain[0].k_lengths)
         save_in_files(plotpath, '/{}_{}_{}_'.format(timestamp, jj, ii) + 'k_lengths_1', P.tau[0][1].domain[0].k_lengths)
+
+    if jj % 10 == 0:
+        save_in_files(plotpath, '/{}_{}_{}_'.format(timestamp, jj, ii) + 'signal', P.maps[0].val)
 
 
 def save_in_files(plotpath, name, array):
@@ -218,13 +229,17 @@ def plot_power_from_file(timestamp, jj, ii, plotpath):
     #k_lengths_1 = np.load(plotpath + '/k_lengths_1.npy')
 
     plt.figure(figsize=(8, 8))
-    plt.loglog(k_lengths_0, np.exp(tau0))
-    plt.title('Reconstructed Power Spectrum in Time Domain')
+    ax = plt.gca()
+    ax.loglog(k_lengths_0, np.exp(tau0))
+    y_ticks = [1.045, 1.05]
+    ax.set_yticks(y_ticks)
+    ax.get_yaxis().set_major_formatter(plt.ScalarFormatter())
     plt.xlabel('k [1/s]')
     plt.ylabel('P(k)')
     print(np.min(np.exp(tau0)), np.max(np.exp(tau0)))
-    tick_position = np.exp(np.max(tau0)+np.min(tau0)//2)
-    plt.yticks([tick_position])
+    plt.ylim(1.042, 1.05)
+    #tick_position = np.exp(np.max(tau0)+np.min(tau0)//2)
+    #plt.yticks([1.045, 1.05])
     save_plot(plotpath + '/../final_power_spec', 'tau0', timestamp, jj, ii)
 
     plt.figure(figsize=(8, 8))
