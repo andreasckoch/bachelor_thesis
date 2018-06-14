@@ -16,16 +16,16 @@ timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 logpath = 'trash/log_{}.txt'.format(timestamp)
 print('Logging to logpath ' + logpath)
 logfile = open(logpath, 'w')
-plotpath = 'trash'
+plotpath = 'results/1_edge'
 
 
-iterations = 5
-t_pix = 2**8  # pixels in time after padding (signal has 2*t_pix pixels)
-e_pix = 256  # pixels in energy after padding (signal has 2*e_pix pixels)
-start_time = 845
-end_time = 1245
+iterations = 20
+t_pix = 2**13  # pixels in time after padding (signal has 2*t_pix pixels)
+e_pix = 2**8  # pixels in energy after padding (signal has 2*e_pix pixels)
+start_time = 855
+end_time = 1255
 t_volume = end_time - start_time  # volume in data
-e_volume = 114.6  # volume in data
+e_volume = 127  # volume in data
 smoothing_time = 1.0e-6
 smoothing_energy = 1.0e-3
 smoothness_sigma_time = 0.3

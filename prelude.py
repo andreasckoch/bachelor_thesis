@@ -23,7 +23,7 @@ iterations = 5
 t_pix = 2**8  # pixels in time after padding (signal has 2*t_pix pixels)
 e_pix = 256  # pixels in energy after padding (signal has 2*e_pix pixels)
 start_time = 855
-end_time = 1245
+end_time = 1255
 t_volume = end_time - start_time  # volume in data
 e_volume = 114.6  # volume in data
 smoothing_time = 1.0e-4
@@ -162,16 +162,16 @@ P_res = D4PO.results
 
 # auf prelude nicht plotten, sondern results speichern:
 try:
-    pd.save_in_files('/afs/mpa/temp/ankoch/results/', 'signal_final', P_res.maps[0])
-    pd.save_in_files('/afs/mpa/temp/ankoch/results/', 'signal_uncertainty_final', P_res.maps_uncertainty[0])
-    pd.save_in_files('/afs/mpa/temp/ankoch/results/', 'tau0_final', P_res.tau[0][0].val)
-    pd.save_in_files('/afs/mpa/temp/ankoch/results/', 'tau1_final', P_res.tau[0][1].val)
-    pd.save_in_files('/afs/mpa/temp/ankoch/results/', 'tau0_uncertainty_final', P_res.tau_uncertainty[0][0].val)
-    pd.save_in_files('/afs/mpa/temp/ankoch/results/', 'tau1_uncertainty_final', P_res.tau_uncertainty[0][1].val)
+    pd.save_in_files('/afs/mpa/temp/ankoch/results/', '{}_signal_final'.format(timestamp), P_res.maps[0])
+    pd.save_in_files('/afs/mpa/temp/ankoch/results/', '{}_signal_uncertainty_final'.format(timestamp), P_res.maps_uncertainty[0])
+    pd.save_in_files('/afs/mpa/temp/ankoch/results/', '{}_tau0_final'.format(timestamp), P_res.tau[0][0].val)
+    pd.save_in_files('/afs/mpa/temp/ankoch/results/', '{}_tau1_final'.format(timestamp), P_res.tau[0][1].val)
+    pd.save_in_files('/afs/mpa/temp/ankoch/results/', '{}_tau0_uncertainty_final'.format(timestamp), P_res.tau_uncertainty[0][0].val)
+    pd.save_in_files('/afs/mpa/temp/ankoch/results/', '{}_tau1_uncertainty_final'.format(timestamp), P_res.tau_uncertainty[0][1].val)
 
 except Exception as e:
     print(e, 'not able to save to afs, saving to scratch instead')
-    pd.save_in_files('fallback/', 'signal_final', P_res.maps[0])
-    pd.save_in_files('fallback/', 'tau0_final', P_res.tau[0][0].val)
-    pd.save_in_files('fallback/', 'tau1_final', P_res.tau[0][1].val)
+    pd.save_in_files('fallback/', '{}_signal_final'.format(timestamp), P_res.maps[0])
+    pd.save_in_files('fallback/', '{}_tau0_final'.format(timestamp), P_res.tau[0][0].val)
+    pd.save_in_files('fallback/', '{}_tau1_final'.format(timestamp), P_res.tau[0][1].val)
 # nachher wieder laden mit Problem.load(), dann plotten

@@ -56,9 +56,9 @@ class D4PO_solver(object):
         tag_map_outer = self._P.maps[0].size * .005 * fudge / (jj + 1)
         tag_map_inner = tag_map_outer * (jj ** 4. + 1) * fudge
 
-        d_h = .0001 / (jj ** 2. + 1)
+        d_h = .001 / (jj ** 2. + 1)
 
-        d_h_p = .0005 / (jj ** 2. + 1)
+        d_h_p = .005 / (jj ** 2. + 1)
 
         # eher d_h_p und tag_power_inner
 

@@ -164,8 +164,8 @@ def scale_and_normalize(x, instrument_factors):
     # Input/Output Dimensions: 3 x t_pix x 256
     if isinstance(x, ift.Field):
         x = x.val
-    # f = x.shape[2] * instrument_factors[:, np.newaxis, :] / np.sum(instrument_factors, axis=1)[:, np.newaxis, np.newaxis]
-    # x = x.copy() * f
+    #f = x.shape[2] * instrument_factors[:, np.newaxis, :] / np.sum(instrument_factors, axis=1)[:, np.newaxis, np.newaxis]
+    #x = x.copy() * f
     return x
 
 
