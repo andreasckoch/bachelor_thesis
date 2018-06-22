@@ -1,16 +1,23 @@
-import numpy as np
-import nifty4 as ift
 import datetime
-import time
 import sys
-import matplotlib.pyplot as plt
+import time
+from os import makedirs
+from os.path import exists
 
-import utilities as QPOutils
+import matplotlib.pyplot as plt
+import nifty4 as ift
+import numpy as np
+from d4po.problem import Problem
+
 import response
 import solver
+import utilities as QPOutils
 from plot_data import plot_signal_data as psd
 
-from d4po.problem import Problem
+dirs = ['trash', 'fallback']
+for dd in dirs:
+    if not exists(dd):
+        makedirs(dd)
 
 timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 logpath = 'trash/log_{}.txt'.format(timestamp)
