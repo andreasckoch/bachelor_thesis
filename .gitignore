@@ -2,12 +2,10 @@ __pycache__
 *.png
 trash
 fallback
-data
 test.py
 results
 plots
 *.p
 mock_data_s_x.py
 mock_signals.py
-constants.py
 test.py
