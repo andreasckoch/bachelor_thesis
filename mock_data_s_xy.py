@@ -20,7 +20,7 @@ from __future__ import division
 import numpy as np
 import nifty4 as ift
 import datetime
-import QPO
+import response
 
 timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 plotpath = 'trash'
@@ -56,7 +56,7 @@ def mock_signal_s_xy(t_pix, e_pix, t_volume, e_volume, smoothing_time, smoothing
     if qpo is False:
         R = ift.GeometryRemover(ift.DomainTuple.make((x_0, x_1)))
     else:
-        R = QPO.Response(ift.DomainTuple.make((x_0, x_1)))
+        R = response.Response(ift.DomainTuple.make((x_0, x_1)))
 
     #########################################################################
     # setting up diffuse source

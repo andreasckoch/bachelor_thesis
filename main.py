@@ -6,7 +6,7 @@ import sys
 import matplotlib.pyplot as plt
 
 import utilities as QPOutils
-import QPO
+import response
 import solver
 from plot_data import plot_signal_data as psd
 
@@ -81,7 +81,7 @@ def make_problem():
 
     ### Build Response ###############################
     signal_domain = (x_0, x_1)
-    R = QPO.Response(signal_domain)
+    R = response.Response(signal_domain)
 
     ### Load Data ####################################
     data = QPOutils.get_data(start_time, end_time, t_pix, seperate_instruments=True)
