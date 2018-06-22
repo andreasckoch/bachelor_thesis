@@ -1,4 +1,4 @@
-# Bayesian Spectral and Temporal Signal Map Reconstruction of SGR 1806-20
+# Bayesian Spectral and Temporal Signal Map Reconstruction of SGR 1806-20 giant flare
 
 ## Dependencies:
 Nifty, D4po, Numpy, Scipy, Matplotlib
